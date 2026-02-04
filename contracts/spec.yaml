@@ -1,0 +1,53 @@
+version: "0.1.0"
+project: "brainstem"
+
+thresholds:
+  auto_file_confidence_min: 0.60
+
+routes:
+  - prefix: "PRO:"
+    destination: "projects"
+    llm_mode: "bypass"
+    rule: "always_file"
+    implementation_state: "planned"
+
+  - prefix: "BD:"
+    destination: "llm_classified"
+    llm_mode: "classify"
+    rule: "confidence_based"
+    implementation_state: "planned"
+
+  - prefix: "CAL:"
+    destination: "events"
+    llm_mode: "extract"
+    rule: "planned"
+    implementation_state: "planned"
+
+  - prefix: "R:"
+    destination: "research_jobs"
+    llm_mode: "planned"
+    rule: "planned"
+    implementation_state: "planned"
+
+  - prefix: "fix:"
+    destination: "corrections"
+    llm_mode: "planned"
+    rule: "planned"
+    implementation_state: "planned"
+
+data_contracts:
+  tables_required:
+    - "People"
+    - "Projects"
+    - "Ideas"
+    - "Admin"
+    - "Events"
+    - "Inbox Log"
+
+invariants:
+  - id: "no_secrets_in_repo"
+    severity: "high"
+    description: "Repo must not contain credentials, tokens, webhook URLs, or private keys."
+  - id: "placeholders_only"
+    severity: "high"
+    description: "Sensitive values must be represented as <<PLACEHOLDER>>."
