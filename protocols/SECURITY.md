@@ -23,16 +23,16 @@
 
 ## Pre-commit checklist (search these exact strings)
 Search the repo for each string below before every commit:
-- `hook.make.com`
-- `https://hook.`
-- `Authorization: Bearer`
-- `xoxb-`
-- `xoxp-`
-- `sk-ant-`
-- `pat`
-- `BEGIN PRIVATE KEY`
-- `secret_`
-- `api.airtable.com/v0/app`
+- EXAMPLE_SECRET: `hook.make.com`
+- EXAMPLE_SECRET: `https://hook.`
+- EXAMPLE_SECRET: `Authorization: Bearer`
+- EXAMPLE_SECRET: `xoxb-`
+- EXAMPLE_SECRET: `xoxp-`
+- EXAMPLE_SECRET: `sk-ant-`
+- EXAMPLE_SECRET: `pat`
+- EXAMPLE_SECRET: `BEGIN PRIVATE KEY`
+- EXAMPLE_SECRET: `secret_`
+- EXAMPLE_SECRET: `api.airtable.com/v0/app`
 - `console.anthropic.com`
 - `perplexity.ai/settings/api`
 
