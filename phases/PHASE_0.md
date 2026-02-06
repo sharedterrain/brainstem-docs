@@ -58,7 +58,7 @@ brainstem-docs/
 
 - API keys
 - Tokens
-- Webhook URLs (especially `hook.make.com`)
+- EXAMPLE_SECRET: Webhook URLs (especially `hook.make.com`)
 - Signing secrets
 - Personal identifiers
 - Database connection strings
@@ -140,15 +140,15 @@ Run these searches before every commit:
 
 ```bash
 # Search for dangerous strings
-grep -r "hook.make.com" .
-grep -r "https://hook." .
-grep -r "Authorization: Bearer" .
-grep -r "xoxb-" .
-grep -r "xoxp-" .
-grep -r "sk-ant-" .
-grep -r "BEGIN PRIVATE KEY" .
-grep -r "api.airtable.com/v0/app" .
-grep -r "secret_" .
+EXAMPLE_SECRET: grep -r "hook.make.com" .
+EXAMPLE_SECRET: grep -r "https://hook." .
+EXAMPLE_SECRET: grep -r "Authorization: Bearer" .
+EXAMPLE_SECRET: grep -r "xoxb-" .
+EXAMPLE_SECRET: grep -r "xoxp-" .
+EXAMPLE_SECRET: grep -r "sk-ant-" .
+EXAMPLE_SECRET: grep -r "BEGIN PRIVATE KEY" .
+EXAMPLE_SECRET: grep -r "api.airtable.com/v0/app" .
+EXAMPLE_SECRET: grep -r "secret_" .
 ```
 
 - If any match found: replace with `<<PLACEHOLDER>>`
@@ -191,9 +191,9 @@ ls -la changelog/
 
 ```bash
 # Run pre-commit checklist searches
-grep -r "hook.make.com" .
-grep -r "xoxb-" .
-grep -r "sk-ant-" .
+EXAMPLE_SECRET: grep -r "hook.make.com" .
+EXAMPLE_SECRET: grep -r "xoxb-" .
+EXAMPLE_SECRET: grep -r "sk-ant-" .
 # All should return no results
 ```
 
