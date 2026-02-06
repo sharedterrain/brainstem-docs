@@ -1,6 +1,5 @@
 # Redaction patterns (public mirror)
 # Use these as search patterns before committing.
-
 hook.make.com
 https://hook.
 xoxb-
@@ -10,8 +9,6 @@ Authorization: Bearer
 BEGIN PRIVATE KEY
 api.airtable.com/v0/app
 secret_
-pat
-
 # If found, replace the entire value with a placeholder:
 # <<MAKE_WEBHOOK_URL>>
 # <<SLACK_BOT_TOKEN>>
