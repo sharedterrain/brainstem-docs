@@ -29,7 +29,7 @@ security:
       - "<<AIRTABLE_PAT>>"
       - "<<NOTION_TOKEN>>"
       - "<<REDACTED>>"
-  example_secret_marker:
+  example_marker:
     # If a doc needs to include secret-like example strings, they MUST be marked on the same line.
     # The CI secret scan ignores lines containing this marker.
     marker: "EXAMPLE_SECRET:"
