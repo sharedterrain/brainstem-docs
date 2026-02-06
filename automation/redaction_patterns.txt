@@ -9,7 +9,6 @@ Authorization: Bearer
 BEGIN PRIVATE KEY
 api.airtable.com/v0/app
 secret_
-pat
 # If found, replace the entire value with a placeholder:
 # <<MAKE_WEBHOOK_URL>>
 # <<SLACK_BOT_TOKEN>>
