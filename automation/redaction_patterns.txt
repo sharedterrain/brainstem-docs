@@ -8,7 +8,7 @@ sk-ant-
 Authorization: Bearer
 BEGIN PRIVATE KEY
 api.airtable.com/v0/app
-secret_[A-Z0-9_]{6,}
+secret_
 # If found, replace the entire value with a placeholder:
 # <<MAKE_WEBHOOK_URL>>
 # <<SLACK_BOT_TOKEN>>
