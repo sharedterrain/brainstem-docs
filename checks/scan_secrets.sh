@@ -10,7 +10,19 @@ if [ ! -f "automation/redaction_patterns.txt" ]; then
   exit 1
 fi
 
-patterns=$(tr '\n' '|' < automation/redaction_patterns.txt | sed 's/|$//')
+patterns=$(grep -vE '^[[:space:]]*
+
+for path in $PUBLISH_PATHS; do
+  if [ -e "$path" ]; then
+    if grep -rE "$patterns" "$path" 2>/dev/null; then
+      echo "❌ SECRETS DETECTED in $path - DO NOT COMMIT"
+      exit 1
+    fi
+  fi
+done
+
+echo "✅ No secrets found in publish scope"
+ automation/redaction_patterns.txt | tr '\n' '|' | sed 's/|/')
 
 for path in $PUBLISH_PATHS; do
   if [ -e "$path" ]; then
