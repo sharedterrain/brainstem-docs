@@ -52,6 +52,10 @@ checks:
         - "Optional: add later if needed"
 
 invariants:
+
+  - id: "phases_namespace_reserved_for_brainstem"
+    severity: "medium"
+    description: "In this repo, phases/ contains Brain-Stem phase docs only (phase_*.md). Git-mirror system phase docs live outside this repo."
   - id: "no_secrets_in_public_mirror"
     severity: "high"
     description: "Public mirror must not contain real credentials, tokens, webhook URLs, or private keys."
