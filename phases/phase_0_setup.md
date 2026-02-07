@@ -127,11 +127,11 @@ cat automation/redaction_patterns.txt
 
 **Should include patterns for:**
 
-- Slack tokens (`xoxb-`, `xoxp-`)
-- Webhook URLs ([`hook.make.com`](http://hook.make.com), [`https://hook`](https://hook))
-- API keys (`sk-ant-`, `Authorization: Bearer`)
-- Airtable patterns ([`api.airtable.com/v0/app`](http://api.airtable.com/v0/app))
-- Generic secrets (`secret_`, `BEGIN PRIVATE KEY`)
+- EXAMPLE_SECRET: Slack tokens (`xoxb-`, `xoxp-`)
+- EXAMPLE_SECRET: Webhook URLs ([`hook.make.com`](http://hook.make.com), [`https://hook`](https://hook))
+- EXAMPLE_SECRET: API keys (`sk-ant-`, `Authorization: Bearer`)
+- EXAMPLE_SECRET: Airtable patterns ([`api.airtable.com/v0/app`](http://api.airtable.com/v0/app))
+- EXAMPLE_SECRET: Generic secrets (`secret_`, `BEGIN PRIVATE KEY`)
 
 ## Notion Source Pages Required
 
