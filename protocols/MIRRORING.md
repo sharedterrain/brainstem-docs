@@ -201,3 +201,8 @@ git push origin dev
 
 # Backfill Notion with mirror date
 ```
+Multi-project architecture
+- Framework repo holds reusable enforcement boundary + templates:
+  - https://github.com/sharedterrain/mirror-framework
+- This repo holds Brain Stem project docs only.
+- Never place framework-phase docs into this project repo.

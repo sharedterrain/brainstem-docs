@@ -261,3 +261,7 @@ EXAMPLE_SECRET:
 ```bash
 bash checks/scan_secrets.sh
 ```
+Operator gate: framework vs project
+Before exporting/pushing any doc, decide:
+- FRAMEWORK -> belongs in sharedterrain/mirror-framework
+- PROJECT -> belongs in this repo
