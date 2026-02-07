@@ -1,53 +1,70 @@
 version: "0.1.0"
-project: "brainstem"
+project: "brainstem-docs"
 
-thresholds:
-  auto_file_confidence_min: 0.60
+mirror:
+  publish_scope:
+    # Only these paths are allowed to appear in the public mirror.
+    paths:
+      - "CONTRACT.md"
+      - "README.md"
+      - "contracts/"
+      - "protocols/"
+      - "phases/"
+      - "checks/"
+      - "automation/"
+      - "changelog/"
+      - "reports/"
+  disallowed:
+    # Anything outside publish_scope is considered private / out-of-scope.
+    outside_publish_scope: true
 
-routes:
-  - prefix: "PRO:"
-    destination: "projects"
-    llm_mode: "bypass"
-    rule: "always_file"
-    implementation_state: "planned"
+security:
+  placeholders:
+    # Placeholders MUST use this format in public docs.
+    format: "<<ALL_CAPS_WITH_UNDERSCORES>>"
+    examples:
+      - "<<MAKE_WEBHOOK_URL>>"
+      - "<<SLACK_BOT_TOKEN>>"
+      - "<<CLAUDE_API_KEY>>"
+      - "<<AIRTABLE_PAT>>"
+      - "<<NOTION_TOKEN>>"
+      - "<<REDACTED>>"
+  example_marker:
+    # If a doc needs to include secret-like example strings, they MUST be marked on the same line.
+    # The CI secret scan ignores lines containing this marker.
+    marker: "EXAMPLE_SECRET:"
+    rule: "Any placeholder secret/token/webhook example must be prefixed with EXAMPLE_SECRET: on the same line."
 
-  - prefix: "BD:"
-    destination: "llm_classified"
-    llm_mode: "classify"
-    rule: "confidence_based"
-    implementation_state: "planned"
-
-  - prefix: "CAL:"
-    destination: "events"
-    llm_mode: "extract"
-    rule: "planned"
-    implementation_state: "planned"
-
-  - prefix: "R:"
-    destination: "research_jobs"
-    llm_mode: "planned"
-    rule: "planned"
-    implementation_state: "planned"
-
-  - prefix: "fix:"
-    destination: "corrections"
-    llm_mode: "planned"
-    rule: "planned"
-    implementation_state: "planned"
-
-data_contracts:
-  tables_required:
-    - "People"
-    - "Projects"
-    - "Ideas"
-    - "Admin"
-    - "Events"
-    - "Inbox Log"
+checks:
+  # CI checks that must pass for PRs into main.
+  required:
+    - id: "scan_secrets"
+      script: "checks/scan_secrets.sh"
+      severity: "high"
+      scope: "mirror.publish_scope"
+      notes:
+        - "Ignores lines containing EXAMPLE_SECRET:"
+        - "Excludes protocols/SECURITY.md and automation/redaction_patterns.txt from grep recursion"
+  recommended:
+    - id: "markdown_lint"
+      severity: "medium"
+      notes:
+        - "Optional: add later if needed"
 
 invariants:
-  - id: "no_secrets_in_repo"
+
+  - id: "phases_namespace_reserved_for_brainstem"
+    severity: "medium"
+    description: "In this repo, phases/ contains Brain-Stem phase docs only (phase_*.md). Git-mirror system phase docs live outside this repo."
+  - id: "no_secrets_in_public_mirror"
     severity: "high"
-    description: "Repo must not contain credentials, tokens, webhook URLs, or private keys."
+    description: "Public mirror must not contain real credentials, tokens, webhook URLs, or private keys."
   - id: "placeholders_only"
     severity: "high"
-    description: "Sensitive values must be represented as <<PLACEHOLDER>>."
+    description: "Sensitive values must be represented as placeholders (<<ALL_CAPS_WITH_UNDERSCORES>>)."
+  - id: "examples_must_be_marked"
+    severity: "high"
+    description: "Any secret-like example string must be prefixed with EXAMPLE_SECRET: on the same line."
+  - id: "publish_scope_only"
+    severity: "high"
+    description: "Only approved publish_scope paths may be included in the public mirror repo."
