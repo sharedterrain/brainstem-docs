@@ -141,7 +141,7 @@ cat automation/redaction_patterns.txt
 
 - [ ]  `README.md`
 - [ ]  `contracts/routes.yaml`
-- [ ]  `contracts/AI_COLLABORATOIN.md`
+- [ ]  `contracts/AI_COLLABORATION.md`
 
 ### Stage 2 Protocol Pages
 
@@ -159,7 +159,7 @@ cat automation/redaction_patterns.txt
 - Title matching exact repo path
 - Mirror status banner: `[Mirrored to GitHub]` or `[Notion-only]`
 - GitHub path documented if mirrored
-- No real secrets (placeholders only: `<<FORMAT>>`)
+- No real secrets, placeholders only:`<<ALL_CAPS_WITH_UNDERSCORES>>`
 - Secret examples marked with `EXAMPLE_SECRET:` on same line
 
 ## Export + Copy Procedure
@@ -260,7 +260,6 @@ git log --oneline -5
 **Update Notion pages:**
 
 - Add `Last Mirror Date: YYYY-MM-DD` to each mirrored page
-- Update operational Drift Log
 - Mark in "Currently Published" tracker
 
 ## Exit Criteria
@@ -280,7 +279,7 @@ git log --oneline -5
 - [ ]  Stage 2 protocol pages mirrored:
     - `protocols/CHANGE_CONTROL.md`
     - `protocols/MIRRORING.md`
-    - `protocols/OPERATING.mc`
+    - `protocols/OPERATING.md`
 - [ ]  Stage 2 phase page mirrored:
     - `phases/phase_0_setup.md`
 - [ ]  PR (dev → main) created and merged successfully
@@ -305,7 +304,7 @@ Proceed to Phase 1: Brain Dump Capture (when ready).
 
 **Problem: Notion export has linkified filenames**
 
-- Find/replace: `[[filename.md](http://filename.md)](url)` → `filename.md`
+- If Notion exported linkified filenames, strip link markup so paths are plain text before copying into the repo.
 - Or manually edit before copying to repo
 - Future prevention: use code blocks in Notion content
 
