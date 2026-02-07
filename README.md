@@ -21,8 +21,11 @@ This repository is a **public, sanitized Markdown mirror** of Brain Stem documen
 ## Notion Source
 - Notion workspace/page: `<<NOTION_SOURCE_URL_OR_ID>>`
 
-Repo role
+## Repo role
 This is a project mirror repo for Brain Stem (project-only docs).
 
 Reusable governance + CI + secret scanning + templates live in:
 - https://github.com/sharedterrain/mirror-framework
+
+Notion structure:
+- Documentation Mirror System -> Projects -> Brain Stem Project
