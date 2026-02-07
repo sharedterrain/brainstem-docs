@@ -7,7 +7,7 @@ thresholds:
 routes:
   - prefix: "PRO:"
     destination: "projects"
-    llm_mode: "bypass"
+    llm_mode: "extract"
     rule: "always_file"
     implementation_state: "planned"
 
