@@ -1,31 +1,35 @@
-# Brain Stem Docs (Public Mirror)
+```markdown
+# Notion-Mirror
 
-This repository is a **public, sanitized Markdown mirror** of Brain Stem documentation authored in Notion.
+Automated documentation mirror for the Notion Hub workspace.
 
-## Rules
-- Public repo = **no secrets, no inbound webhook URLs, no personal identifiers**
-- Use placeholders only: `<<LIKE_THIS>>`
-- Run the pre-commit checklist in `protocols/SECURITY.md` before every commit
+## How it works
+
+Notion is the canonical source. This repo is a read-only mirror — do not edit files here directly.
+
+**Pipeline:**
+1. Make scenario fetches raw block JSON from Notion via API
+2. JSON committed to `_raw/` directory
+3. GitHub Action converts block JSON to clean markdown
+4. Markdown files published alongside source JSON
 
 ## Structure
-- `CONTRACT.md` — blueprint (what must be true)
-- `contracts/spec.yaml` — machine-readable anchors
-- `phases/` — procedural build steps (how to implement)
-- `protocols/` — publishing + security rules
-- `checks/` — validation scripts/specs (public-safe)
-- `automation/` — redaction patterns and automation notes
-- `reports/` — QA outputs and audit notes
-- `examples/` — sanitized examples
-- `changelog/` — change history (public-safe)
 
-## Notion Source
-- Notion workspace/page: `<<NOTION_SOURCE_URL_OR_ID>>`
+```
+_raw/          # Raw Notion block JSON (auto-generated, do not edit)
+README.md      # This file
+```
 
-## Repo role
-This is a project mirror repo for Brain Stem (project-only docs).
+Content directories will appear here as the GitHub Action processes `_raw/` files. Directory structure mirrors the Notion Hub workspace organization.
 
-Reusable governance + CI + secret scanning + templates live in:
-- https://github.com/sharedterrain/mirror-framework
+## Governance
 
-Notion structure:
-- Documentation Mirror System -> Projects -> Brain Stem Project
+- **Canonical source:** Notion Hub workspace
+- **Orchestration:** Make.com (Mirror Bulk Publish scenario)
+- **Conversion:** GitHub Action (Python converter, triggers on `_raw/**/*.json` changes)
+- **Credentials:** Never stored in this repo — managed in approved vaults
+
+## Status
+
+Mirror operational as of March 2026. GitHub Action (block JSON → markdown conversion) pending build.
+```
