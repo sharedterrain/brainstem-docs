@@ -1,43 +1,39 @@
-name: Convert Notion JSON to Markdown
+name: convert
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '_raw/**/*.json'
+  workflow_dispatch:
 
-concurrency:
-  group: convert-markdown
-  cancel-in-progress: false
-  
+permissions:
+  contents: write
+
 jobs:
   convert:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Run converter
-        run: |
-          find _raw -name "*.json" > all_files.txt
-          python scripts/convert.py all_files.txt
+      - name: Install dependencies
+        run: pip install requests
 
-      - name: Commit markdown files
+      - name: Run Notion converter
+        env:
+          NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+        run: python scripts/notion_to_md.py
+
+      - name: Commit converted markdown files
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add brain-stem/
-          git diff --staged --quiet || git commit -m "Convert: Notion JSON → Markdown"
-          git pull --rebase origin main
+          git config user.name  "notion-mirror[bot]"
+          git config user.email "notion-mirror[bot]@users.noreply.github.com"
+          git add .
+          git diff --cached --quiet || git commit -m "docs: sync Notion pages to markdown [skip ci]"
           git push
