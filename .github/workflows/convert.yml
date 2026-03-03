@@ -28,14 +28,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Get changed JSON files
-        id: changed
-        run: |
-          git diff --name-only HEAD~1 HEAD -- '_raw/**/*.json' > changed_files.txt
-          cat changed_files.txt
-
       - name: Run converter
-        run: python scripts/convert.py changed_files.txt
+        run: |
+          find _raw -name "*.json" > all_files.txt
+          python scripts/convert.py all_files.txt
 
       - name: Commit markdown files
         run: |
