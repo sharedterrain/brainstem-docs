@@ -2,6 +2,8 @@ name: convert
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [notion-mirror]
 
 permissions:
   contents: write
