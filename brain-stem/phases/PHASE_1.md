@@ -1740,3 +1740,241 @@ Each is a separate PATCH updating only the linked field, placed between the Crea
 [Phase 2: Classification & Routing](https://www.notion.so/548d362076b243f1ad33df72fd6617a1)
 
 **Child page:** PRO: Route Fix - Working Instructions
+**Status:** Ready to implement
+**Time:** 30 minutes
+**Architecture Change:** PRO: prefix guarantees destination=Projects with confidence 1.0, but message still requires Claude extraction for structured fields.
+---
+## Problem Summary
+The PRO: route should NOT bypass intelligence entirely. Instead:
+- **PRO: prefix** guarantees destination = **Projects** with **confidence = 1.0** (no classification needed)
+- **Message body** must still be parsed via **Claude API** to populate Projects fields (Name, Type, Status, Next Action, Notes, Tags, Due Date)
+This ensures effective filing, retrieval, and referencing while maintaining user control over destination.
+---
+## Implementation Steps
+### Step 1: Strip Prefix and Normalize
+**Add Set Multiple Variables module after Router (PRO route)**
+1. Click + after Router → PRO: route
+1. Select **Tools > Set multiple variables**
+1. Create two variables:
+**Variable 1 - original_text:**
+- Name: `original_text`
+- Value: (use picker) Webhooks [1] → event.text
+**Variable 2 - clean_text:**
+- Name: `clean_text`  
+- Value: (use picker) Webhooks [1] → event.text
+- Then add **replace** function: `replace(1.event.text; "/^PRO:\s*/"; "")`
+- This strips both "PRO:" and "PRO: " and trims whitespace
+1. Click **OK**
+---
+### Step 2: Create Inbox Log (Processing Status)
+**Add Airtable > Create a record**
+1. Click + after Set Variables
+1. Select **Airtable > Create a record**
+1. **Connection:** Airtable - Brain Stem
+1. **Base:** Brain Stem  
+1. **Table:** Inbox Log
+**Map Field Values:**
+**Original Text:**
+- Picker → Tools [previous module] → **original_text**
+**Filed To:**
+- **Map toggle OFF**
+- Type: `Projects`
+**Confidence:**
+- Type: `1`
+**Status:**
+- **Map toggle OFF**
+- Type: `Processing`
+**Slack Channel:**
+- Picker → Webhooks [1] → [event.channel](http://event.channel/)
+**Slack Message TS:**
+- Picker → Webhooks [1] → event.ts
+**Slack Thread TS:**
+- Picker → Webhooks [1] → event.thread_ts
+- If empty, falls back to event.ts automatically
+**Created:**
+- Use "Date & time" picker → **now**
+1. Click **OK**
+**Note the module number** - you'll need it for Step 5.
+---
+### Step 3: Call Claude (Projects Field Extraction)
+**Add HTTP > Make a request**
+1. Click + after Create Inbox Log
+1. Select **HTTP > Make a request**
+1. **URL:** [`https://api.anthropic.com/v1/messages`](https://api.anthropic.com/v1/messages)
+1. **Method:** POST
+1. **Headers:**
+```javascript
+x-api-key: [Your Claude API key]
+anthropic-version: 2023-06-01
+Content-Type: application/json
+```
+1. **Body:** (Request content)
+```json
+{
+  "model": "claude-3-5-haiku-20241022",
+  "max_tokens": 500,
+  "temperature": 0,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Extract project fields from this Slack message. Destination is FIXED to Projects (do not reclassify). Return ONLY raw JSON.\n\nMessage: SET_VARIABLE_MODULE.clean_text\n\nJSON schema (exact keys matching Airtable Projects table from Phase 0):\n{\n  \"name\": \"string\",\n  \"type\": \"digital|physical|hybrid|null\",\n  \"status\": \"active|waiting|blocked|someday|done|null\",\n  \"next_action\": \"string|null\",\n  \"notes\": \"string|null\",\n  \"tags\": [\"string\"],\n  \"reason\": \"string\"\n}\n\nRules:\n- name: Project title (required) → maps to 'Name' field\n- type: Infer from message (digital/physical/hybrid) → maps to 'Type' select field (capitalize first letter)\n- status: Default 'active' unless message indicates otherwise → maps to 'Status' select field (capitalize first letter)\n- next_action: Single executable action if clear, else null → maps to 'Next Action' long text field\n- notes: Additional context from message → maps to 'Notes' long text field\n- tags: Short keywords, always include 'slack-capture' → maps to 'Tags' multi-select field\n- reason: Brief explanation of extraction choices (for logging/debugging, not stored in Airtable)\n\nNote: 'Last Touched' is set automatically to current timestamp in Make.com, not extracted from message.\n\nReturn ONLY the JSON object, no markdown formatting."
+    }
+  ]
+}
+```
+**Replace **`SET_VARIABLE_MODULE.clean_text`** with the actual picker reference to your Set Variables module's clean_text output.**
+1. **Parse response:** ON
+1. Click **OK**
+**Module output will be:** `data.content[].text` containing Claude's JSON response.
+---
+### Step 4: Parse Claude JSON
+**Add JSON > Parse JSON**
+1. Click + after HTTP module
+1. Select **JSON > Parse JSON**
+1. **JSON string:** (use picker)
+    - Navigate to your HTTP module
+    - Select **data > content > Collection > text**
+    - Or use formula: `first(HTTP_`[`MODULE.data`](http://module.data/)`.content).text`
+1. Click **OK**
+**This creates structured variables:** `name`, `type`, `status`, `next_action`, `notes`, `tags`, `reason`
+---
+### Step 5: Create Projects Record
+**Add Airtable > Create a record**
+1. Click + after Parse JSON
+1. Select **Airtable > Create a record**
+1. **Connection:** Airtable - Brain Stem
+1. **Base:** Brain Stem
+1. **Table:** Projects
+**Map Field Values:**
+**Name:**
+- Picker → Parse JSON [previous module] → **name**
+- Fallback: If empty, use clean_text (truncate to 255 chars)
+**Type:**
+- **Map toggle OFF** (it's a select field but we're setting value directly)
+- Picker → Parse JSON → **type**
+- If null, default to: `Digital`
+**Status:**
+- **Map toggle OFF**
+- Picker → Parse JSON → **status**  
+- If null, default to: `Active`
+**Next Action:**
+- Picker → Parse JSON → **next_action**
+- Leave empty if null (do NOT use clean_text as fallback)
+**Notes:**
+- Picker → Parse JSON → **notes**
+- If null, fallback: Picker → Set Variables → **clean_text**
+**Tags:**
+- **Map toggle ON** (multi-select requires mapping)
+- Click **Add item**
+- Map each tag from Parse JSON → **tags** array
+- Ensure "slack-capture" is included (add manually if not in array)
+**Last Touched:**
+- Use "Date & time" picker → **now**
+1. Click **OK**
+**Note the module number** - you'll need it for Step 6.
+---
+### Step 6: Update Inbox Log (Filed Status)
+**Add Airtable > Update a record**
+1. Click + after Create Projects
+1. Select **Airtable > Update a record**
+1. **Connection:** Airtable - Brain Stem
+1. **Base:** Brain Stem
+1. **Table:** Inbox Log
+**Record ID:**
+- Picker → Find your "Create Inbox Log" module from Step 2
+- Select **ID**
+**Map Field Values:**
+**Status:**
+- **Map toggle OFF**
+- Type: `Filed`
+**Destination Name:**
+- Picker → Create Projects module from Step 5
+- Select **Name**
+**Destination URL:**
+- Type: [`https://airtable.com/appuT9wJR9eKmVfyU/tblkG1bqVjQhQ9JtD/viwCNITHPk13nzw8H/`](https://airtable.com/appuT9wJR9eKmVfyU/tblkG1bqVjQhQ9JtD/viwCNITHPk13nzw8H/)
+- Then at the end (after the last /), use picker:
+- Navigate to Create Projects module
+- Select **ID**
+- Final result: URL base + purple ID pill
+1. Click **OK**
+---
+### Step 7: Slack Confirmation Reply
+**Add Slack > Create a message**
+1. Click + after Update Inbox Log
+1. Select **Slack > Create a message**
+1. **Connection:** Your Slack connection
+1. **Channel:** (use picker) Webhooks [1] → [event.channel](http://event.channel/)
+1. **Thread TS:** (use picker) Webhooks [1] → event.ts
+1. **Text:**
+```javascript
+✅ Filed to *Projects*
+
+*Project:* PROJECTS_MODULE.Name
+*Status:* PROJECTS_MODULE.Status
+if(PROJECTS_MODULE.Next Action; "*Next Action:* " + PROJECTS_MODULE.Next Action; "")
+
+🔗 <INBOX_LOG_UPDATE_MODULE.Destination URL|View in Airtable>
+```
+**Replace **`PROJECTS_MODULE`** and **`INBOX_LOG_UPDATE_MODULE`** with actual picker references.**
+1. Click **OK**
+---
+## Testing
+1. Ensure scenario is **ON**
+1. In #brain-stem, send: `PRO: Build the new content synthesis interface`
+1. Check [Make.com](http://make.com/) execution - all modules should be green
+1. Verify in Airtable:
+**Inbox Log:**
+- Original Text = full Slack message with prefix
+- Filed To = Projects
+- Confidence = 1
+- Status = Filed
+- Destination Name + URL populated
+**Projects:**
+- Name = extracted project title (not full message)
+- Type = Digital/Physical/Hybrid (inferred)
+- Status = Active (or as specified)
+- Next Action = executable action if present
+- Notes = additional context
+- Tags includes "slack-capture"
+1. Check Slack reply in thread with project details + Airtable link
+---
+## Success Criteria
+✅ Inbox Log shows original message with PRO: prefix
+✅ Projects record has structured fields (not just raw text dump)
+✅ Next Action is a single executable step (when applicable)
+✅ Tags include "slack-capture" + relevant keywords
+✅ Slack confirmation shows project name, status, next action
+✅ No literal variable names like "7.clean_text" in any field
+---
+## Key Differences from Previous Version
+**OLD (bypass):**
+- PRO: → Skip Claude → Dump clean_text into all fields
+**NEW (extraction):**
+- PRO: → Guarantees destination=Projects (confidence 1.0) → Claude extracts structured fields → Populated properly
+**Why this matters:**
+- **Retrieval:** Can filter by Status, Type, Tags
+- **Actionability:** Next Action is distinct from full message
+- **Intelligence:** Claude interprets intent, not just text storage
+- **Consistency:** Same structured data quality as classified captures
+---
+## Troubleshooting
+**Claude returns markdown instead of JSON:**
+- Check prompt emphasizes "Return ONLY raw JSON, no markdown formatting"
+- Add filter module to strip `json and ` wrapper if needed
+**Parse JSON fails:**
+- View HTTP module output in execution history
+- Copy Claude response, validate at [jsonlint.com](http://jsonlint.com/)
+- Adjust prompt to enforce stricter JSON format
+**Tags not appearing:**
+- Map toggle must be ON for multi-select fields
+- Manually add "slack-capture" as first item if not in Claude response
+**Variable substitution fails:**
+- Always use picker, never type module references manually
+- Ensure Parse JSON module successfully extracted all fields
+- Check field names match exactly (case-sensitive)
+---
+## Related Documentation
+See also:
+- **Phase 0:** Inbox Log and Projects table schemas
+- **Operating Protocol:** Prefix semantics and role split (Claude vs Airtable AI)
+- **Prompt Library:** Projects Extraction prompt (when versioned)
