@@ -6,6 +6,10 @@ Queries the Notion "Export Scope Mapping" database for active rows,
 fetches block content for each page (with full pagination),
 converts to clean Markdown, and writes .md files to the repo.
 
+Writes Mirror Status (Current/Failed) and Last Mirrored back to each
+mapping row on completion. Staleness detection is handled separately
+by check_staleness.py.
+
 Required env vars:
   NOTION_API_TOKEN          — Notion integration token
   NOTION_EXPORT_SCOPE_DB_ID — optional override; defaults to known DB ID
@@ -87,7 +91,7 @@ def update_mirror_status(row_id: str, status: str) -> None:
     payload = {
         "properties": {
             "Mirror Status": {"select": {"name": status}},
-            "Last Mirrored": {"date": {"start": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}}
+            "Last Mirrored": {"date": {"start": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}},
         }
     }
     requests.patch(url, headers=HEADERS, json=payload)
@@ -170,6 +174,7 @@ def block_to_md(block: dict, depth: int = 0) -> str:
     children = block.get("_children", [])
     indent = "    " * depth
     lines = []
+    children_handled = False
 
     if btype == "heading_1":
         lines.append(f"# {rich_text_to_md(data.get('rich_text', []))}")
@@ -184,15 +189,18 @@ def block_to_md(block: dict, depth: int = 0) -> str:
         lines.append(f"{indent}- {rich_text_to_md(data.get('rich_text', []))}")
         for child in children:
             lines.append(block_to_md(child, depth + 1))
+        children_handled = True
     elif btype == "numbered_list_item":
         lines.append(f"{indent}1. {rich_text_to_md(data.get('rich_text', []))}")
         for child in children:
             lines.append(block_to_md(child, depth + 1))
+        children_handled = True
     elif btype == "to_do":
         checked = "x" if data.get("checked") else " "
         lines.append(f"{indent}- [{checked}] {rich_text_to_md(data.get('rich_text', []))}")
         for child in children:
             lines.append(block_to_md(child, depth + 1))
+        children_handled = True
     elif btype == "toggle":
         text = rich_text_to_md(data.get("rich_text", []))
         lines.append(f"{indent}<details><summary>{text}</summary>")
@@ -201,11 +209,13 @@ def block_to_md(block: dict, depth: int = 0) -> str:
             lines.append(block_to_md(child, depth + 1))
         lines.append("")
         lines.append(f"{indent}</details>")
+        children_handled = True
     elif btype == "quote":
         lines.append(f"> {rich_text_to_md(data.get('rich_text', []))}")
         for child in children:
             for line in block_to_md(child, 0).splitlines():
                 lines.append(f"> {line}")
+        children_handled = True
     elif btype == "callout":
         icon = ""
         icon_data = data.get("icon", {})
@@ -215,6 +225,7 @@ def block_to_md(block: dict, depth: int = 0) -> str:
         for child in children:
             for line in block_to_md(child, 0).splitlines():
                 lines.append(f"> {line}")
+        children_handled = True
     elif btype == "code":
         lang = data.get("language", "")
         lines.append(f"```{lang}")
@@ -236,8 +247,9 @@ def block_to_md(block: dict, depth: int = 0) -> str:
             lines.append("| " + " | ".join(["---"] * col_count) + " |")
             for row in rows[1:]:
                 lines.append("| " + " | ".join(row) + " |")
+        children_handled = True
     elif btype == "table_row":
-        pass
+        children_handled = True
     elif btype == "image":
         url = (data.get("external") or data.get("file") or {}).get("url", "")
         caption = rich_text_to_md(data.get("caption", []))
@@ -259,6 +271,7 @@ def block_to_md(block: dict, depth: int = 0) -> str:
     elif btype in ("column_list", "column", "synced_block"):
         for child in children:
             lines.append(block_to_md(child, depth))
+        children_handled = True
     elif btype == "breadcrumb":
         lines.append("<!-- breadcrumb -->")
     elif btype == "template":
@@ -267,6 +280,11 @@ def block_to_md(block: dict, depth: int = 0) -> str:
         lines.append(f"$${data.get('expression', '')}$$")
     else:
         lines.append(f"<!-- unsupported block type: {btype} -->")
+
+    # Fallback: recurse into children for any block type that hasn't already handled them
+    if not children_handled and children:
+        for child in children:
+            lines.append(block_to_md(child, depth))
 
     return "\n".join(lines)
 
