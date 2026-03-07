@@ -3,8 +3,8 @@
 ```yaml
 ---
 doc_id: "phase_2"
-last_updated: "2026-02-26"
-contract_version: "0.2.0"
+last_updated: "2026-03-07"
+contract_version: "0.4.0"
 ---
 ```
 
@@ -27,6 +27,8 @@ This phase extends the Classification Interface implementation from Phase 1 with
 - **CONTRACT §3.5: Extraction Interface** — Re-extraction on corrected routing
 
 - **CONTRACT §3.5: Storage Interface** — Record updates from fix handler
+
+- **CONTRACT §3.5: Memory Interface** — Open Brain write path on fix routes (fire-and-forget POST to ingest-thought)
 
 - **CONTRACT §8: LLM Contracts** — Few-shot prompt version updates (`brain_dump_classifier_v1`)
 
@@ -290,6 +292,24 @@ EVENTS: {"name":"string","start_time":"ISO8601|null","end_time":"ISO8601|null","
 ```
 
 **Note:** `209.Data.records[1].fields.Original Text` and `1.event.text` are Make pills that resolve at runtime.
+
+### Open Brain Write Path (fix: Routes) — Mar 7, 2026
+
+5 fire-and-forget HTTP POST modules added to write re-extracted thoughts to Open Brain on fix routes. See CONTRACT §3.5 Memory Interface for the full interface definition. Shares the same endpoint, headers, and fire-and-forget pattern as the primary route modules documented in Phase 1 As-Built.
+
+**Fix route modules (off router 214):**
+
+| **Route** | **text field** | **destination** | **source** | **confidence** | **record_id** |
+| --- | --- | --- | --- | --- | --- |
+| fix: People | `213.name + 213.context` | people | brain_stem_fix | 1.0 | `215.data.id` |
+| fix: Projects | `213.name + 213.next_action + 213.notes` | projects | brain_stem_fix | 1.0 | `222.data.id` |
+| fix: Ideas | `213.name + 213.one_liner + 213.notes` | ideas | brain_stem_fix | 1.0 | `228.data.id` |
+| fix: Admin | `213.name + 213.notes` | admin | brain_stem_fix | 1.0 | `231.data.id` |
+| fix: Events | `213.name + 213.attendees + 213.location + 213.notes` | events | brain_stem_fix | 1.0 | `234.data.id` |
+
+All fix route modules use `classified_name: 213.name`.
+
+**Note:** Backup/fallback array modules will be cloned from primary once primary routes are tuned and hardened.
 
 ### Conditional Typed-Field PATCHes (Main BD Routes)
 

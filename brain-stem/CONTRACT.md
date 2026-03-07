@@ -3,8 +3,8 @@
 ```yaml
 ---
 doc_id: "contract_brain_stem"
-last_updated: "2026-03-05"
-contract_version: "0.3.1"
+last_updated: "2026-03-07"
+contract_version: "0.4.0"
 parent_contract: "contract_hub"
 ---
 ```
@@ -27,7 +27,7 @@ parent_contract: "contract_hub"
 
 - **Last known good commit:** 
 
-- **Last change:** v0.3.1 — §8 BD classifier prompt reconciled to live module 48 (full prompt text, context block, edge cases, Events fields: start_time, end_time, attendees, location). §9 Events table schema updated to match as-built (Title, Start Time, End Time, Attendees, Location).
+- **Last change:** v0.4.0 — §2 added Supabase/Open Brain as external dependency. §3b added Semantic Memory provider row. §3.5 added Memory Interface definition. §13 updated Phase 1 and Phase 2 implementation state to reflect Open Brain HTTP modules. Reconciliation of as-built Open Brain write path across 12 Make modules.
 
 ---
 
@@ -55,6 +55,8 @@ Brain Stem is a **capture, classification, and publishing system** that transfor
 
 - Content synthesis and publishing
 
+- Semantic memory write path (Open Brain via Supabase Edge Function)
+
 **Out of scope:**
 
 - Account provisioning
@@ -76,6 +78,8 @@ Brain Stem is a **capture, classification, and publishing system** that transfor
 - Perplexity API (research)
 
 - Airtable (storage)
+
+- Supabase + Open Brain (semantic memory — write path via Edge Function)
 
 ---
 
@@ -120,6 +124,7 @@ The following table maps each functional stage to its current provider. This map
 | Storage | Airtable | Personal Access Token |
 | Publishing | TBD per platform | TBD |
 | Metrics | TBD per platform | TBD |
+| Semantic Memory | Supabase Edge Function (Open Brain) | x-brain-key header |
 
 **Trust boundaries (provider-specific):**
 
@@ -130,6 +135,8 @@ The following table maps each functional stage to its current provider. This map
 - [Make.com](http://make.com/) → Airtable: Personal Access Token
 
 - Publishing channels: TBD per platform
+
+- [Make.com](http://make.com/) → Supabase Edge Function: x-brain-key header (fire-and-forget)
 
 ---
 
@@ -262,6 +269,36 @@ Each boundary in the pipeline has a named interface that defines the data shape 
 - `platform_id` (string) — platform-native identifier
 
 - `published_at` (ISO-8601 datetime)
+
+### Memory Interface
+
+**Boundary:** Pipeline destination routes → Semantic memory layer
+
+**Trigger:** Fire-and-forget POST after each successful record creation (all destination routes including fix and PRO bypass).
+
+**Input (to memory layer):**
+
+- `text` (string) — concatenated fields relevant to the destination (e.g., name + context for People; name + next_action + notes for Projects)
+
+- `source` (string) — `"brain_stem"` (primary/PRO routes) or `"brain_stem_fix"` (fix routes)
+
+- `destination` (string) — target entity type (people, projects, ideas, admin, events, needs_review)
+
+- `confidence` (number, 0.0–1.0) — classification confidence (1.0 for PRO and fix routes)
+
+- `classified_name` (string) — the name/title assigned by the classifier
+
+- `record_id` (string, optional) — Airtable record ID of the created/updated record (absent for needs_review)
+
+**Output:** None (fire-and-forget; response not parsed).
+
+**Current provider:** Supabase Edge Function (`ingest-thought`)
+
+**Auth:** `x-brain-key` header with MCP access key
+
+**Endpoint:** `https://<<SUPABASE_PROJECT_REF>>.supabase.co/functions/v1/ingest-thought`
+
+**Note:** Backup/fallback array modules will be cloned from primary once primary routes are tuned and hardened.
 
 ---
 
@@ -754,6 +791,8 @@ Classify the following brain dump into ONE of these categories:
 
 - [Airtable] Inbox Log and all destination table writes operational (§9, §10, §3.5 Storage Interface)
 
+- [Supabase] Open Brain write path: 7 fire-and-forget HTTP POST modules to `ingest-thought` Edge Function on primary BD routes (People, Projects, Ideas, Admin, Events, Needs Review off router 30) and PRO bypass route (§3.5 Memory Interface)
+
 **Phase 2:** Classification & Routing — *Live as of Feb 26, 2026*
 
 - [[Make.com](http://make.com/)] fix: handler operational across all 5 destination routes (People, Projects, Ideas, Admin, Events)
@@ -765,6 +804,8 @@ Classify the following brain dump into ONE of these categories:
 - Unfurl prevention on all Slack reply modules
 
 - Classifier prompt updated with date resolution (`now` pill)
+
+- [Supabase] Open Brain write path: 5 fire-and-forget HTTP POST modules to `ingest-thought` Edge Function on fix routes (fix: People, fix: Projects, fix: Ideas, fix: Admin, fix: Events) (§3.5 Memory Interface)
 
 - CAL, R routes: Still scaffolded (§7 Route Semantics)
 
@@ -780,6 +821,7 @@ Classify the following brain dump into ONE of these categories:
 
 | **Version** | **Date** | **Description** |
 | --- | --- | --- |
+| 0.4.0 | 2026-03-07 | §2 added Supabase/Open Brain as external dependency (semantic memory write path). §3b added Semantic Memory provider row. §3.5 added Memory Interface definition (fire-and-forget POST to ingest-thought). §13 updated Phase 1 and Phase 2 with Open Brain module counts. Trust boundaries updated. Reconciliation of 12 as-built Make HTTP modules (7 primary/PRO + 5 fix routes). Minor version bump — new interface, additive only, no breaking changes. |
 | 0.3.1 | 2026-03-05 | §8 BD classifier prompt reconciled to live module 48 — full prompt text now authoritative in contract (context block, edge cases, Events fields: start_time, end_time, attendees, location). §9 Events table schema updated to match as-built (Title not Name, added Start Time, End Time, Attendees, Location). Patch bump — no interface changes, documentation reconciliation only. |
 | 0.3.0 | 2026-03-03 | §13 updated to as-built: Phase 1 marked Complete, Phase 2 marked Live (fix: handler, typed-field guards, unfurl prevention). §7 fix route updated from Scaffolded to Live. Minor version bump — no interface changes, additive status update only. |
 | 0.2.0 | 2026-02-22 | §3 split into Functional Pipeline (§3a) + Provider Mapping (§3b). §3.5 Interface Definitions added. §15 Change Control expanded with version bump rules and downstream sync deadline. Formerly MOD-005. |
