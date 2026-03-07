@@ -3,8 +3,8 @@
 ```yaml
 ---
 doc_id: "contract_brain_stem"
-last_updated: "2026-03-03"
-contract_version: "0.3.0"
+last_updated: "2026-03-05"
+contract_version: "0.3.1"
 parent_contract: "contract_hub"
 ---
 ```
@@ -27,7 +27,7 @@ parent_contract: "contract_hub"
 
 - **Last known good commit:** 
 
-- **Last change:** v0.3.0 — §13 updated to as-built (Phase 1 Complete, Phase 2 Live), §7 fix route status updated
+- **Last change:** v0.3.1 — §8 BD classifier prompt reconciled to live module 48 (full prompt text, context block, edge cases, Events fields: start_time, end_time, attendees, location). §9 Events table schema updated to match as-built (Title, Start Time, End Time, Attendees, Location).
 
 ---
 
@@ -471,9 +471,58 @@ Note: PRO runs extraction-only (no classification), then auto-files to Projects 
 
 **Input schema:**
 
-- `clean_text` (string, prefix stripped)
+- `clean_text` (string, prefix stripped) — injected via `21.clean_text` Make pill
 
-**Output schema (JSON only):**
+- `now` — Make pill resolving to current date/time (used for relative date conversion)
+
+**System prompt (authoritative — module 48):**
+
+```plain text
+You are a classification assistant for a creative professional's Brain Stem system.
+
+**CONTEXT:**
+The user is a multimedia creator working across print, video, presentations, and physical installations. Their work focuses on:
+- AI and creativity
+- Sustainable design and regenerative systems
+- Human-AI collaboration
+- Traditional ecological knowledge integrated with modern technology
+- Speculative futures
+
+They publish on LinkedIn (thought leadership), Substack (long-form essays), personal blog (portfolio/process), and create physical exhibition documentation.
+
+**YOUR TASK:**
+Classify the following brain dump into ONE of these categories:
+
+1. **PEOPLE** - Mentions a person by name, includes contact info, describes relationship context, or notes follow-up actions with someone
+2. **PROJECTS** - Active work with status, executable next action, blocked/waiting dependencies, or project-specific notes
+   - **Digital projects:** Keywords like 'article', 'video edit', 'website', 'script', 'blog post', 'social media'
+   - **Physical projects:** Keywords like 'installation', 'exhibition', 'fabrication', 'gallery', 'sculpture', 'build'
+   - **Hybrid projects:** Contains both digital and physical keywords
+3. **IDEAS** - Concepts without immediate action, brainstorms, inspiration, "someday/maybe" thoughts, creative directions
+4. **ADMIN** - Tasks with deadlines, administrative to-dos, one-time action items, personal errands
+5. **EVENTS** - Meetings, appointments, deadlines with time, calendar-based reminders, scheduled gatherings
+
+**EDGE CASES:**
+- **Empty message or only whitespace:** Set destination to "needs_review", confidence 0.0, reason "Empty message"
+- **Non-English message:** Attempt classification, but if uncertain, set destination to "needs_review", confidence below 0.60, reason "Non-English content requires manual review"
+- **Image/attachment only (no text):** Set destination to "needs_review", confidence 0.0, reason "No text content to classify"
+- **Multiple distinct items:** Set destination to "needs_review", confidence below 0.60, reason "Contains multiple topics requiring separate captures"
+
+**OUTPUT FORMAT (raw JSON with no code block formatting):**
+
+{"destination": "people|projects|ideas|admin|events|needs_review", "confidence": 0.85, "data": {"name": "Clear, descriptive title", "context": "For PEOPLE: relationship and interaction notes", "follow_ups": "For PEOPLE: specific next actions with this person", "status": "For PROJECTS: active|waiting|blocked|someday|done", "next_action": "For PROJECTS: Specific executable action", "notes": "For PROJECTS/IDEAS/EVENTS: Additional context", "one_liner": "For IDEAS: Core insight in one sentence", "due_date": "For ADMIN/EVENTS: YYYY-MM-DD or null", "start_time": "For EVENTS: YYYY-MM-DDTHH:MM:SS.000Z UTC, infer timezone as America/Vancouver today's date is now and convert, or null", "end_time": "For EVENTS: YYYY-MM-DDTHH:MM:SS.000Z UTC, infer timezone as America/Vancouver today's date is now and convert, or null", "attendees": "For EVENTS: comma-separated names or null", "location": "For EVENTS: location name or null", "tags": ["relevant", "tags"], "project_type": "digital|physical|hybrid (based on keywords above)"}, "reason": "Brief explanation of why this classification and confidence score"}
+
+**CONFIDENCE SCORING RULES:**
+- 0.85-1.0: Very clear classification, all key info present
+- 0.70-0.84: Clear classification, some ambiguity or missing details
+- 0.60-0.69: Reasonable classification, notable uncertainty
+- Below 0.60: Route to "needs_review" - too ambiguous or contains multiple distinct items
+
+**BRAIN DUMP TO CLASSIFY:**
+21.clean_text
+```
+
+**Output schema (JSON only, no code fences):**
 
 ```json
 {
@@ -487,7 +536,11 @@ Note: PRO runs extraction-only (no classification), then auto-files to Projects 
     "next_action": "string (for Projects)",
     "notes": "string",
     "one_liner": "string (for Ideas)",
-    "due_date": "YYYY-MM-DD|null",
+    "due_date": "YYYY-MM-DD|null (for Admin/Events)",
+    "start_time": "YYYY-MM-DDTHH:MM:SS.000Z|null (for Events, UTC)",
+    "end_time": "YYYY-MM-DDTHH:MM:SS.000Z|null (for Events, UTC)",
+    "attendees": "string|null (for Events, comma-separated)",
+    "location": "string|null (for Events)",
     "tags": ["string"],
     "project_type": "digital|physical|hybrid"
   },
@@ -495,15 +548,27 @@ Note: PRO runs extraction-only (no classification), then auto-files to Projects 
 }
 ```
 
+**Edge case handling (built into prompt):**
+
+- Empty/whitespace → `needs_review`, confidence 0.0
+
+- Non-English → attempt classification, `needs_review` if confidence < 0.60
+
+- Image/attachment only → `needs_review`, confidence 0.0
+
+- Multiple distinct items → `needs_review`, confidence < 0.60
+
 **Confidence rules:**
 
-- 0.85-1.0: Very clear
+- 0.85-1.0: Very clear, all key info present
 
-- 0.70-0.84: Clear with minor ambiguity
+- 0.70-0.84: Clear, some ambiguity or missing details
 
-- 0.60-0.69: Reasonable but uncertain
+- 0.60-0.69: Reasonable, notable uncertainty
 
-- <0.60: Route to needs_review
+- <0.60: Route to `needs_review`
+
+**Make pills:** `21.clean_text` (prefix-stripped input), `now` (current datetime for relative date resolution)
 
 ---
 
@@ -601,7 +666,15 @@ Note: PRO runs extraction-only (no classification), then auto-files to Projects 
 
 **Fields:**
 
-- Name (Single line text)
+- Title (Single line text)
+
+- Start Time (Date)
+
+- End Time (Date)
+
+- Attendees (Long text)
+
+- Location (Single line text)
 
 - Event Type (Single select: Meeting, Deadline, Appointment)
 
@@ -707,6 +780,7 @@ Note: PRO runs extraction-only (no classification), then auto-files to Projects 
 
 | **Version** | **Date** | **Description** |
 | --- | --- | --- |
+| 0.3.1 | 2026-03-05 | §8 BD classifier prompt reconciled to live module 48 — full prompt text now authoritative in contract (context block, edge cases, Events fields: start_time, end_time, attendees, location). §9 Events table schema updated to match as-built (Title not Name, added Start Time, End Time, Attendees, Location). Patch bump — no interface changes, documentation reconciliation only. |
 | 0.3.0 | 2026-03-03 | §13 updated to as-built: Phase 1 marked Complete, Phase 2 marked Live (fix: handler, typed-field guards, unfurl prevention). §7 fix route updated from Scaffolded to Live. Minor version bump — no interface changes, additive status update only. |
 | 0.2.0 | 2026-02-22 | §3 split into Functional Pipeline (§3a) + Provider Mapping (§3b). §3.5 Interface Definitions added. §15 Change Control expanded with version bump rules and downstream sync deadline. Formerly MOD-005. |
 | 0.1.0 | 2026-02-18 | Initial contract. Pipeline architecture, route semantics, data contracts, LLM contracts, invariants. Adopted v0.2.0 structural standard (YAML headers, §-numbering). Formerly MOD-001. |

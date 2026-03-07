@@ -371,14 +371,21 @@ This prevents Slack from generating URL preview cards for Airtable links, which 
 
 ### Classifier Prompt Update (Module 48)
 
-Start Time and End Time field descriptions updated to include date resolution:
+The full classifier prompt (`brain_dump_classifier_v1`) is now authoritative in CONTRACT §8 (v0.3.1). Key additions beyond initial design:
 
-```plain text
-"start_time": "For EVENTS: YYYY-MM-DDTHH:MM:SS.000Z UTC, infer timezone as America/Vancouver and convert based on today's date is now, or null"
-"end_time": "For EVENTS: YYYY-MM-DDTHH:MM:SS.000Z UTC, infer timezone as America/Vancouver and convert based on today's date is now, or null"
-```
+- **Context block:** Describes user as multimedia creator with focus areas (AI/creativity, sustainable design, human-AI collaboration, traditional ecological knowledge, speculative futures) and publishing platforms (LinkedIn, Substack, blog, exhibition docs)
+
+- **Edge case handling:** Empty/whitespace, non-English, image-only, multiple distinct items — all route to `needs_review` with appropriate confidence
+
+- **Events fields added:** `start_time`, `end_time` (UTC with America/Vancouver inference via `now` Make pill), `attendees` (comma-separated), `location`
+
+- **Project type keyword guidance:** Digital vs physical vs hybrid classification keywords listed in prompt
+
+- **Confidence scoring rules:** Explicit ranges (0.85-1.0, 0.70-0.84, 0.60-0.69, <0.60) with descriptions
 
 `now` is a Make pill that resolves at runtime to the current date/time, enabling Claude to convert relative dates ("next Wednesday") to absolute timestamps.
+
+**Note:** The prompt does NOT handle organizations — People captures are individual-focused only. See CONTRACT §4 for entity definitions.
 
 ### Bugs Fixed
 
