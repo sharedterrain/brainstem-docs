@@ -356,7 +356,6 @@ RSS feed is implemented in Phase 2. Hugo has built-in RSS support. The feed enab
 
 - [CONTRACT (Brain Stem)](https://www.notion.so/cb5393105c784cc3969571a898b4f81e) — Brain Stem pipeline (Phase 3 integration source)
 [https://github.com/sharedterrain/Notion-Mirror/brain-stem/CONTRACT.md](https://github.com/sharedterrain/Notion-Mirror/)brain-stem/CONTRACT.md)
-
 ---
 
 **End of CONTRACT (**[**livingsystems.earth**](http://livingsystems.earth/)**) v0.1.0**
