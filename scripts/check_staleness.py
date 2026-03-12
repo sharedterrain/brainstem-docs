@@ -1,16 +1,3 @@
-# check_staleness.py (notion-mirror)
-
-```yaml
----
-doc_id: "check_staleness_public"
-last_updated: "2026-03-10"
-contract_version: "0.1.0"
----
-```
-
-> 📍 **Repo:** `sharedterrain/notion-mirror` · **Path:** `scripts/check_staleness.py`
-
-```python
 #!/usr/bin/env python3
 """
 check_staleness.py
@@ -95,11 +82,13 @@ def fetch_active_rows() -> list:
 
     return rows
 
+
 def extract_page_id(source_url: str) -> str:
     """Extract 32-char hex page ID from a Notion URL."""
     clean = source_url.replace("-", "")
     match = re.search(r"([a-f0-9]{32})$", clean)
     return match.group(1) if match else ""
+
 
 # ── Source Page resolution ────────────────────────────────────────────────────
 
@@ -127,12 +116,14 @@ def search_page_by_title(title: str) -> dict | None:
                     }
     return None
 
+
 def write_source_page(row_id: str, page_url: str) -> None:
     """Write a resolved Notion page URL to the Source Page column."""
     url = f"https://api.notion.com/v1/pages/{row_id}"
     payload = {"properties": {"Source Page": {"url": page_url}}}
     r = requests.patch(url, headers=HEADERS, json=payload)
     r.raise_for_status()
+
 
 # ── Staleness helpers ─────────────────────────────────────────────────────────
 
@@ -143,12 +134,14 @@ def fetch_last_edited_time(page_id: str) -> str:
     r.raise_for_status()
     return r.json().get("last_edited_time", "")
 
+
 def write_last_updated(row_id: str, last_edited: str) -> None:
     """Write last_edited_time to the Last Updated column."""
     url = f"https://api.notion.com/v1/pages/{row_id}"
     payload = {"properties": {"Last Updated": {"date": {"start": last_edited}}}}
     r = requests.patch(url, headers=HEADERS, json=payload)
     r.raise_for_status()
+
 
 def write_mirror_status(row_id: str, status: str) -> None:
     """Write Mirror Status to the Export Scope Mapping row."""
@@ -157,12 +150,14 @@ def write_mirror_status(row_id: str, status: str) -> None:
     r = requests.patch(url, headers=HEADERS, json=payload)
     r.raise_for_status()
 
+
 def write_cleanup_flag(row_id: str) -> None:
     """Check the Cleanup checkbox on the Export Scope Mapping row."""
     url = f"https://api.notion.com/v1/pages/{row_id}"
     payload = {"properties": {"Cleanup": {"checkbox": True}}}
     r = requests.patch(url, headers=HEADERS, json=payload)
     r.raise_for_status()
+
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -246,6 +241,6 @@ def main():
     else:
         print("\nAll pages checked.")
 
+
 if __name__ == "__main__":
     main()
-```
