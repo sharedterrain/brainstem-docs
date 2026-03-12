@@ -30,7 +30,6 @@ jobs:
         run: |
           git config user.name "notion-mirror[bot]"
           git config user.email "notion-mirror[bot]@users.noreply.github.com"
-          git pull --rebase origin main
           git add -- . ':!.github/workflows/'
           git diff --cached --quiet || git commit -m "docs: sync Notion pages to markdown [skip ci]"
           git push
