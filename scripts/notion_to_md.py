@@ -1,16 +1,3 @@
-# notion_to_md.py (notion-mirror)
-
-```yaml
----
-doc_id: "notion_to_md_public"
-last_updated: "2026-03-11"
-contract_version: "0.2.0"
----
-```
-
-> 📍 **Repo:** `sharedterrain/notion-mirror` · **Path:** `scripts/notion_to_md.py`
-
-```python
 #!/usr/bin/env python3
 """
 notion_to_md.py
@@ -78,6 +65,7 @@ HEADERS = {
 
 REPO_ROOT = Path(__file__).parent.parent
 
+
 # ── Export Scope query ────────────────────────────────────────────────────────
 
 def fetch_export_scope() -> list:
@@ -142,6 +130,7 @@ def fetch_export_scope() -> list:
 
     return pages
 
+
 # ── Notion API helpers ────────────────────────────────────────────────────────
 
 def update_mirror_status(row_id: str, status: str) -> None:
@@ -155,6 +144,7 @@ def update_mirror_status(row_id: str, status: str) -> None:
         }
     }
     requests.patch(url, headers=HEADERS, json=payload)
+
 
 def fetch_page_metadata(page_id: str) -> dict:
     """Fetch page title and last_edited_time."""
@@ -173,6 +163,7 @@ def fetch_page_metadata(page_id: str) -> dict:
 
     last_edited = data.get("last_edited_time", "")
     return {"title": title, "last_edited_time": last_edited}
+
 
 def fetch_blocks(block_id: str) -> list:
     """Fetch all block children with full pagination, recursing into nested blocks."""
@@ -197,6 +188,7 @@ def fetch_blocks(block_id: str) -> list:
             block["_children"] = []
 
     return blocks
+
 
 # ── Rich text helpers ─────────────────────────────────────────────────────────
 
@@ -228,6 +220,7 @@ def rich_text_to_md(rich_texts: list) -> str:
 
         parts.append(text)
     return "".join(parts)
+
 
 # ── Block-to-Markdown conversion ──────────────────────────────────────────────
 
@@ -351,10 +344,12 @@ def block_to_md(block: dict, depth: int = 0) -> str:
 
     return "\n".join(lines)
 
+
 def blocks_to_md(blocks: list) -> str:
     sections = [block_to_md(b) for b in blocks]
     raw = "\n\n".join(sections)
     return re.sub(r"\n{3,}", "\n\n", raw).strip() + "\n"
+
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -433,6 +428,6 @@ def main():
             print(f"  - {e}")
         sys.exit(1)
 
+
 if __name__ == "__main__":
     main()
-```
