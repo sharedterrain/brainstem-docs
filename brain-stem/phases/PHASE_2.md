@@ -36,7 +36,7 @@ This phase extends the Classification Interface implementation from Phase 1 with
 
 - **CONTRACT §15: Change Control Protocol** — fix→refile workflow as a discovery→reconcile path
 
-See: [CONTRACT (Brain Stem)](https://www.notion.so/cb5393105c784cc3969571a898b4f81e) v0.2.0 | [contracts/spec (Brain Stem)](https://www.notion.so/98d781fe40ed4e31a566f0d8886325fc)
+See: [CONTRACT (Brain-Stem)](https://www.notion.so/cb5393105c784cc3969571a898b4f81e) v0.2.0 | [contracts/spec (Brain-Stem)](https://www.notion.so/98d781fe40ed4e31a566f0d8886325fc)
 
 ---
 
