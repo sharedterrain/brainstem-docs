@@ -5,7 +5,7 @@
 doc_id: "contract_openclaw_deployment"
 contract_version: "1.0.0"
 parent_contract: "contract_hub"
-last_updated: "2026-03-11"
+last_updated: "2026-03-14"
 owner: "Jedidiah Duyf"
 created: "2026-02-27"
 ---
@@ -262,9 +262,11 @@ This two-layer approach ensures continuity across sessions despite the stateless
 
 ### §5.1 Unified Gateway
 
-**Invariant:** All models are routed through **OpenRouter** as the unified gateway. No direct provider API keys are configured for model access.
+**Invariant:** OpenRouter is the primary unified gateway for model routing. Provider flexibility — the ability to switch models without reconfiguring provider auth — is worth the ~5.5% OpenRouter markup.
 
-**Rationale:** Provider flexibility — the ability to switch models without reconfiguring provider auth — is worth the ~5.5% OpenRouter markup. This is a permanent architectural choice.
+**Exception (active):** Direct Anthropic API keys (`ANTHROPIC_API_KEY`) are configured for Sonnet and Opus spawns. OpenClaw currently blocks OpenRouter-routed models in spawned agent sessions; until that block is cleared, sub-agent spawns for Anthropic models must use direct provider keys (CD-029). OpenRouter remains the gateway for all non-spawn routing (coordinator, arbiter, heartbeat, fallback).
+
+**Note:** Model routing is an ongoing active decision area. Assignments, providers, and routing paths evolve as OpenClaw capabilities change, new models ship, and cost/performance data accumulates. The routing table in §5.2 and the Configuration Decisions page are the living record.
 
 ### §5.2 Role-to-Model Assignment
 
@@ -277,11 +279,11 @@ This two-layer approach ensures continuity across sessions despite the stateless
 | Main agent (coordinator) | `google/gemini-3-flash-preview` | Flash default; escalates to Sonnet via spawn |
 | Morning brief (strategic arbiter) | `anthropic/claude-sonnet-4.6` | Daily cron default; Opus on-demand only |
 | Heartbeat | `google/gemini-2.0-flash-lite` | No change |
-| Code generation | `google/gemini-3.1-pro-preview` | No change |
-| Research and content | `google/gemini-3.1-pro-preview` | No change |
-| Tool-use-heavy / exec ops | `anthropic/claude-sonnet-4.6` | Spawned by Flash coordinator for escalation |
-| Complex architectural decisions | `anthropic/claude-sonnet-4.6` | No change |
-| Perspective reset / unblocking | `anthropic/claude-opus-4.6` | On-demand explicit spawn only |
+| Research and content | `google/gemini-3.1-pro-preview` | Retained for non-spawn research tasks |
+| Tool-use-heavy / exec ops | `anthropic/claude-sonnet-4-6` (direct) | Direct Anthropic API; OpenRouter fallback fails in sub-agent sessions (CD-029) |
+| Code generation / site development | `anthropic/claude-sonnet-4-6` (direct) | Replaces Gemini Pro; Sonnet 1M context at $3/$15 eliminates Pro advantage (CD-031) |
+| Complex architectural decisions | `anthropic/claude-sonnet-4-6` (direct) | Direct Anthropic API (CD-029) |
+| Perspective reset / unblocking | `anthropic/claude-opus-4-6` (direct) | On-demand explicit spawn only; direct Anthropic API (CD-029) |
 
 **Assignment updates** are Lane B edits — logged in the Configuration Decisions page, no contract change required.
 
@@ -318,7 +320,7 @@ The report is the input to assignment decisions. Assignments are the output. The
 | Host machine | Metacarcinus (M1 MacBook Air, 8GB/256GB, macOS Sonoma) | Local network at 10.0.0.102 |
 | OpenClaw version | v2026.3.2 | Post-update exec settings: `security=full, ask=off` |
 | Gateway | Running, loopback 127.0.0.1:18789 | PID active |
-| Slack | Connected, #magination (C0AGNFVRKFA) | Full 21-scope manifest, Socket Mode |
+| Slack | Connected, #magination (C0AGNFVRKFA). Thread session model: `historyScope: thread`, `inheritParent: false` | Full 21-scope manifest, Socket Mode. Each thread = isolated session key (CD-030). |
 | Heartbeat | 2h interval | Model: Gemini 2.0 Flash Lite. Cost-reduction holding pattern. |
 | Browser tool | Chrome at `/Applications/Google Chrome.app` | CDP on port 18792 |
 | Git repos | Notion-Mirror (public), magis-workshop (private, read/write SSH deploy key) | Plus project-specific repos |

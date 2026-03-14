@@ -3,9 +3,9 @@
 ```yaml
 ---
 doc_id: "contract_livingsystems_earth"
-contract_version: "0.2.0"
+contract_version: "0.2.1"
 parent_contract: "contract_openclaw_deployment"
-last_updated: "2026-03-10"
+last_updated: "2026-03-14"
 owner: "Jedidiah Duyf"
 created: "2026-02-27"
 ---
@@ -130,10 +130,11 @@ The LCA Database feature introduces a dynamic data component beyond Hugo's stati
 | **Component** | **Current Value** | **Notes** |
 | --- | --- | --- |
 | Domain registrar | WHC (Web Hosting Canada) | Domain already parked |
-| Hosting provider | WHC shared hosting | Vancouver DC, 100% hydro power |
-| Deploy method | rsync/SFTP from Metacarcinus | Git deploy as alternative if plan supports it |
-| SSL | WHC-provided (Let's Encrypt) | HTTPS required |
-| Billing | CAD | C$4–8/month shared hosting |
+| Hosting provider | Cloudflare Pages | Free tier. CDN-level distribution. |
+| Deploy method | Git push to sharedterrain/livingsystems-earth (private) | Cloudflare Pages connected to repo. Auto-builds on push. |
+| Build command | `hugo --gc --minify` | Output dir: public |
+| Custom domain | [livingsystems.earth](http://livingsystems.earth/) | Verified and green as of 2026-03-13 |
+| SSL | Cloudflare-provided | HTTPS active |
 
 ### §4.2 Green Hosting Principle
 
@@ -141,7 +142,7 @@ The LCA Database feature introduces a dynamic data component beyond Hugo's stati
 
 ### §4.3 Scaling Path
 
-WHC shared hosting (current) → Vercel, Netlify, or Cloudflare Pages (when traffic or commercial scaling demands it). Hugo's static output deploys to any of these with minimal configuration changes (update `deploy.sh` or add a CI config).
+Cloudflare Pages free tier (current) → Cloudflare Pages Pro or equivalent edge platform (Vercel, Netlify) when traffic or commercial scaling demands it. Hugo's static output deploys to any of these with minimal configuration changes.
 
 **Scaling triggers** (any one is sufficient):
 
@@ -387,6 +388,7 @@ RSS feed is implemented in Phase 2. Hugo has built-in RSS support. The feed enab
 | --- | --- | --- |
 | 0.1.0 | 2026-02-27 | Initial draft. Codifies Hugo + WHC + flat-file architecture, content strategy, publishing workflow with human review gate, lead funnel from day one, green hosting requirement, and phase boundaries. Derived from Feb 27 Strategy Plan and advisory session. |
 | 0.2.0 | 2026-03-10 | LCA Database integration. Added LCA as core feature in §2 Site Identity. Added §3.5 (LCA dynamic data component — JS islands, API-first, modular/portable, open datasets only for v1). Added §8.2 (LCA integration point with data flow and contract reference). Updated §9 phase boundaries: Phase 2 expanded to include LCA data pipeline, new Phase 2.5 for LCA feature going live. Renumbered deployment pipeline (§3.6) and RSS (§8.3). Reflects architectural decision that LCA Database is a feature of [livingsystems.earth](http://livingsystems.earth/), not a separate project. |
+| 0.2.1 | 2026-03-13 | Phase 0 deployed to Cloudflare Pages (free tier) rather than WHC shared hosting. WHC retained as domain registrar only. Cloudflare Pages selected for CDN distribution, zero-config SSL, and Git-native deploy pipeline. §4 updated to reflect current state. |
 
 ---
 
@@ -407,4 +409,4 @@ RSS feed is implemented in Phase 2. Hugo has built-in RSS support. The feed enab
 [https://raw.githubusercontent.com/sharedterrain/Notion-Mirror/refs/heads/main/brain-stem/CONTRACT.md](https://raw.githubusercontent.com/sharedterrain/Notion-Mirror/refs/heads/main/brain-stem/CONTRACT.md)
 ---
 
-**End of CONTRACT (**[**livingsystems.earth**](http://livingsystems.earth/)**) v0.2.0**
+**End of CONTRACT (**[**livingsystems.earth**](http://livingsystems.earth/)**) v0.2.1**
