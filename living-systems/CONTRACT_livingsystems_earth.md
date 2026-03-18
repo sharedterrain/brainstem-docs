@@ -3,9 +3,9 @@
 ```yaml
 ---
 doc_id: "contract_livingsystems_earth"
-contract_version: "0.2.1"
+contract_version: "0.3.0"
 parent_contract: "contract_openclaw_deployment"
-last_updated: "2026-03-14"
+last_updated: "2026-03-18"
 owner: "Jedidiah Duyf"
 created: "2026-02-27"
 ---
@@ -69,9 +69,11 @@ This contract governs [**livingsystems.earth**](http://livingsystems.earth/) —
 
 ### §3.1 Static Site Generator
 
-**Invariant:** The site is built with **Hugo** as the static site generator. Hugo was selected for zero-dependency builds (single Go binary), deterministic output, millisecond build times, and agent-friendly file-based architecture.
+**Invariant:** The site is built with **Hugo** as the static site generator. Hugo was selected for deterministic output, millisecond build times, and agent-friendly file-based architecture.
 
 **Invariant:** Content pages use no JavaScript framework. HTML + minimal JS only. Interactive features (if needed later) use Hugo shortcodes or JS islands, not a framework migration.
+
+**Note:** The build toolchain now includes **Node.js/PostCSS** for Tailwind CSS v4 token processing. Hugo itself remains a single Go binary, but `npm install` is required before builds to resolve the PostCSS dependency. This does not affect content portability — Tailwind is a build-time styling tool, not a runtime framework.
 
 ### §3.2 Content as Flat Files
 
@@ -88,10 +90,9 @@ livingsystems.earth/
 ├── content/              # Markdown content (the valuable asset)
 │   ├── _index.md         # Homepage
 │   ├── about/
-│   ├── research/         # Research articles and curations
-│   ├── news/             # News aggregation and commentary
+│   ├── field-notes/      # Research articles, curations, and commentary
 │   ├── services/         # Consulting offerings
-│   ├── products/         # Products and offerings (from day one)
+│   ├── products/         # Products and offerings (structural accommodation)
 │   └── projects/         # Portfolio / case studies
 ├── themes/
 │   └── livingsystems/    # Custom theme (owned, not third-party)
@@ -132,7 +133,7 @@ The LCA Database feature introduces a dynamic data component beyond Hugo's stati
 | Domain registrar | WHC (Web Hosting Canada) | Domain already parked |
 | Hosting provider | Cloudflare Pages | Free tier. CDN-level distribution. |
 | Deploy method | Git push to sharedterrain/livingsystems-earth (private) | Cloudflare Pages connected to repo. Auto-builds on push. |
-| Build command | `hugo --gc --minify` | Output dir: public |
+| Build command | `hugo --gc --minify` | Output dir: public. Requires `npm install` first (Tailwind v4 / PostCSS). |
 | Custom domain | [livingsystems.earth](http://livingsystems.earth/) | Verified and green as of 2026-03-13 |
 | SSL | Cloudflare-provided | HTTPS active |
 
@@ -236,7 +237,7 @@ These principles govern architectural trade-offs for the website:
 
 1. **No framework lock-in for content pages.** No React, Vue, or framework churn. Content pages are HTML + minimal JS. Interactive features use islands, not full frameworks.
 
-1. **Ship minimal, iterate in phases.** Phase 1 ships with a modified open-source Hugo theme. Design perfection does not block launch. Custom theme evolves as Magi gains proficiency.
+1. **Ship minimal, iterate in phases.** Phase 1 ships with a custom Hugo theme built on the Forest Layer palette (confirmed hex tokens in `tailwind.config.js`), Jost + Cormorant Garamond fonts, and Tailwind CSS v4 utility classes. Design evolves iteratively as content matures.
 
 1. **Green credentials are non-negotiable.** Hosting must use verified renewable energy. This aligns with the site's subject matter and values.
 
@@ -389,6 +390,7 @@ RSS feed is implemented in Phase 2. Hugo has built-in RSS support. The feed enab
 | 0.1.0 | 2026-02-27 | Initial draft. Codifies Hugo + WHC + flat-file architecture, content strategy, publishing workflow with human review gate, lead funnel from day one, green hosting requirement, and phase boundaries. Derived from Feb 27 Strategy Plan and advisory session. |
 | 0.2.0 | 2026-03-10 | LCA Database integration. Added LCA as core feature in §2 Site Identity. Added §3.5 (LCA dynamic data component — JS islands, API-first, modular/portable, open datasets only for v1). Added §8.2 (LCA integration point with data flow and contract reference). Updated §9 phase boundaries: Phase 2 expanded to include LCA data pipeline, new Phase 2.5 for LCA feature going live. Renumbered deployment pipeline (§3.6) and RSS (§8.3). Reflects architectural decision that LCA Database is a feature of [livingsystems.earth](http://livingsystems.earth/), not a separate project. |
 | 0.2.1 | 2026-03-13 | Phase 0 deployed to Cloudflare Pages (free tier) rather than WHC shared hosting. WHC retained as domain registrar only. Cloudflare Pages selected for CDN distribution, zero-config SSL, and Git-native deploy pipeline. §4 updated to reflect current state. |
+| 0.3.0 | 2026-03-18 | Phase 1 design and build toolchain decisions codified. §3.1 updated: removed "zero-dependency builds" language — Tailwind CSS v4 introduces Node.js/PostCSS dependency alongside Hugo. §3.3 updated: `research/` renamed to `field-notes/`, `news/` removed (consolidated into field-notes). §4.1 build notes updated to reflect npm requirement. §7.4 updated: "modified open-source Hugo theme" replaced with custom theme specification (Forest Layer palette, Jost + Cormorant Garamond fonts, Tailwind v4 utility classes). Design direction confirmed during Phase 1 scaffold work. |
 
 ---
 
@@ -409,4 +411,4 @@ RSS feed is implemented in Phase 2. Hugo has built-in RSS support. The feed enab
 [https://raw.githubusercontent.com/sharedterrain/Notion-Mirror/refs/heads/main/brain-stem/CONTRACT.md](https://raw.githubusercontent.com/sharedterrain/Notion-Mirror/refs/heads/main/brain-stem/CONTRACT.md)
 ---
 
-**End of CONTRACT (**[**livingsystems.earth**](http://livingsystems.earth/)**) v0.2.1**
+**End of CONTRACT (**[**livingsystems.earth**](http://livingsystems.earth/)**) v0.3.0**

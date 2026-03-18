@@ -52,7 +52,7 @@ The content pipeline works like this:
 
 1. **Review gate** — Magi posts draft summaries to the messaging channel. Jedidiah reviews, approves, requests edits, or rejects. Nothing publishes without explicit human approval.
 
-1. **Publish** — Approved content is committed to Git, built by Hugo, and deployed to WHC
+1. **Publish** — Approved content is committed to Git, built by Hugo, and deployed to Cloudflare Pages
 
 1. **Brain Stem integration (Phase 3+)** — Brain Stem captures eventually feed into the content pipeline, with Magi processing incoming ideas into publishable content
 
@@ -70,7 +70,7 @@ A visitor to [livingsystems.earth](http://livingsystems.earth/) sees:
 
 - **Services** — consulting offerings in regenerative systems and AI implementation
 
-- **Research/Articles** — initial published content (minimum 4 pages at launch, growing via content engine)
+- **Field Notes** — research articles, curations, and commentary (minimum 4 pages at launch, growing via content engine)
 
 - **LCA Database** — search, browse, and compare environmental impact data for materials and processes. Public datasets (USLCI, USDA LCA Digital Commons, TRACI). The LCA tool ships in parallel with site content, not deferred.
 
@@ -78,7 +78,7 @@ A visitor to [livingsystems.earth](http://livingsystems.earth/) sees:
 
 - **RSS feed** — for syndication (added during content engine phase)
 
-The site is clean, professional, and reflects the values of the work — ecological, thoughtful, not corporate-generic. It feels like a living document, not a brochure. Phase 1 ships with a modified open-source Hugo theme; the design evolves as the content matures.
+The site is clean, professional, and reflects the values of the work — ecological, thoughtful, not corporate-generic. It feels like a living document, not a brochure. Phase 1 ships with a custom Hugo theme (Forest Layer palette, Jost + Cormorant Garamond fonts, Tailwind CSS v4). The design evolves iteratively as the content matures.
 
 ## What's Decided
 
@@ -86,13 +86,15 @@ These are codified in contracts and are not open questions:
 
 - **Hugo** as static site generator — CONTRACT ([livingsystems.earth](http://livingsystems.earth/)) §3.1
 
-- **WHC** as host (Vancouver DC, hydro power, CAD billing) — CONTRACT ([livingsystems.earth](http://livingsystems.earth/)) §4.1
+- **Cloudflare Pages** as host (free tier, CDN distribution, Git-native deploy) — CONTRACT ([livingsystems.earth](http://livingsystems.earth/)) §4.1
 
 - **Content as flat Markdown files in Git** — no CMS, no framework lock-in
 
 - **Human approval gate on all publishing** — Magi drafts, Jedidiah approves via messaging channel
 
 - **LCA Database as a feature module** — JS islands pattern, API-first, governed by child contract
+
+- **Custom Hugo theme** — Forest Layer palette, Jost + Cormorant Garamond fonts, Tailwind CSS v4
 
 - **Open service stack architecture** — providers are configuration, interfaces are architecture
 
@@ -104,7 +106,7 @@ These need resolution before or during Phase 1:
 
 - **Phase 1 content scope** — business presence only at launch, or include initial research/news content?
 
-- **Content voice and brand** — tone, visual identity, reference sites that feel right
+- **Content voice and brand** — tone partially resolved (Forest Layer palette, Jost + Cormorant Garamond fonts confirmed). Branding direction still open: three options generated (Mycelial, Topographic, Botanical Circuit) — not yet chosen.
 
 - **GitHub repository visibility** — public or private?
 
@@ -114,12 +116,12 @@ These need resolution before or during Phase 1:
 
 [livingsystems.earth](http://livingsystems.earth/) is a downstream output of the Magi system:
 
-- **Governed by** CONTRACT ([livingsystems.earth](http://livingsystems.earth/)) v0.1.0, which inherits from CONTRACT (OpenClaw Deployment)
+- **Governed by** CONTRACT ([livingsystems.earth](http://livingsystems.earth/)) v0.3.0, which inherits from CONTRACT (OpenClaw Deployment)
 
-- **Built by** Magi — the operational coordinator delegates site development to Gemini Pro (iterative code work) and volume execution to Flash (LCA data pipeline, bulk content transforms)
+- **Built by** Magi — the Sonnet coordinator handles site development directly, with Haiku executors for volume tasks (LCA data pipeline, bulk content transforms)
 
 - **Fed by** Brain Stem (Phase 3+) — Brain Stem captures ideas and research topics that Magi processes into publishable content
 
-- **Deployed to** WHC shared hosting via Git → build → rsync/SFTP
+- **Deployed to** Cloudflare Pages via Git push → auto-build → CDN distribution
 
 The site is Magi's first shipped product. It proves the architecture works and establishes the consulting presence that justifies the broader system investment.
