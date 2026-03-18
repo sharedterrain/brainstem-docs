@@ -5,7 +5,7 @@
 doc_id: "contract_openclaw_deployment"
 contract_version: "1.0.0"
 parent_contract: "contract_hub"
-last_updated: "2026-03-14"
+last_updated: "2026-03-16"
 owner: "Jedidiah Duyf"
 created: "2026-02-27"
 ---
@@ -125,7 +125,7 @@ Roles are architecture. Model assignments are configuration tracked in the model
 | **Strategic Arbiter** | Periodic check-in with Jedidiah. Reviews results, steers direction, updates model capability report, rewrites agent docs and task plans with explicit model assignments. | Isolated cron session | Read: Open Brain, Magi Brain, local memory. Write: both brains, local memory, bootstrap files. | None — produces artifacts, does not delegate. | Artifacts to workspace; summary to #magination. |
 | **Operational Coordinator** | Default operational brain. Receives inbound messages, breaks work into tasks, writes clear spawn prompts for executors, reviews executor output, closes the learning loop by writing to appropriate brain. | Persistent main session | Read: Open Brain, Magi Brain, local memory. Write: both brains, local memory. | Spawns sub-agents for volume/specialized work. Delegates to executors, never escalates to arbiter. | Distilled insights to brains; task results to #magination; delegated work to sub-agents. |
 | **Codebase / Site Developer** | Broad-context iterative development. Hugo site builds, LCA schema design, long-file edits, application development. | Spawned agent (sub-agent) | Read: local workspace (context passed in spawn prompt, not memory tools). Write: workspace files only. | None. | Results return to coordinator for review. |
-| **Volume Executor** | High-volume, well-defined execution. LCA data ingestion, bulk transforms, web research, doc revisions, templated publishing, data classification. The workhorse. | Stateless sub-agent | Read: skills only (context passed in spawn prompt). Write: workspace files only. | May spawn mechanical workers (requires maxSpawnDepth: 2). | Results return to coordinator. Does not write to brains. |
+| **Volume Executor** | High-volume, well-defined execution. LCA data ingestion, bulk transforms, web research, doc revisions, templated publishing, data classification. The workhorse. | Stateless sub-agent | Read: skills, Magi Brain (direct access), context passed in spawn prompt. Write: workspace files only. Open Brain remains coordinator-only. | May spawn mechanical workers (requires maxSpawnDepth: 2). | Results return to coordinator. Does not write to brains. |
 | **Mechanical Worker** | Pattern-matching at volume. Tagging, routing, formatting, anything truly mechanical. | Stateless sub-sub-agent | Read: task prompt only. Write: workspace files only. | None. | Results return to calling executor. |
 | **Research** | Semantic search, current events, market signals, domain-specific queries. | Direct API tool call | None (stateless query-response). | None. | Results return to calling agent for synthesis. |
 | **Synthesis** | Specific composition tasks where a particular model has comparative advantage. | Direct API tool call | None (stateless query-response). | None. | Results return to calling agent. |
@@ -264,7 +264,7 @@ This two-layer approach ensures continuity across sessions despite the stateless
 
 **Invariant:** OpenRouter is the primary unified gateway for model routing. Provider flexibility — the ability to switch models without reconfiguring provider auth — is worth the ~5.5% OpenRouter markup.
 
-**Exception (active):** Direct Anthropic API keys (`ANTHROPIC_API_KEY`) are configured for Sonnet and Opus spawns. OpenClaw currently blocks OpenRouter-routed models in spawned agent sessions; until that block is cleared, sub-agent spawns for Anthropic models must use direct provider keys (CD-029). OpenRouter remains the gateway for all non-spawn routing (coordinator, arbiter, heartbeat, fallback).
+**Exception (active):** Direct Anthropic API keys (`ANTHROPIC_API_KEY`) are configured for Anthropic models. OpenClaw currently blocks OpenRouter-routed models in spawned agent sessions; until that block is cleared, Anthropic models must use direct provider keys (CD-029). With Sonnet now the coordinator default (CD-032), direct Anthropic routing covers both the coordinator and all Anthropic spawns. OpenRouter remains the gateway for non-Anthropic models (Gemini Flash fallback, Gemini Flash Lite heartbeat, Gemini Pro research).
 
 **Note:** Model routing is an ongoing active decision area. Assignments, providers, and routing paths evolve as OpenClaw capabilities change, new models ship, and cost/performance data accumulates. The routing table in §5.2 and the Configuration Decisions page are the living record.
 
@@ -278,8 +278,9 @@ This two-layer approach ensures continuity across sessions despite the stateless
 | --- | --- | --- |
 | Main agent (coordinator) | `anthropic/claude-sonnet-4-6` (direct) | Sonnet default; Flash unreliable for routing decisions (CD-032) |
 | Morning brief (strategic arbiter) | `anthropic/claude-sonnet-4.6` | Daily cron default; Opus on-demand only |
+| Volume executor (sub-agent default) | `anthropic/claude-haiku-4-5` | All-Anthropic stack; Haiku for well-scoped mechanical tasks (CD-033) |
 | Fallback / lightweight coordination | `google/gemini-3-flash-preview` | Demoted from coordinator default (CD-032) |
-| Heartbeat | `google/gemini-2.0-flash-lite` | No change |
+| Heartbeat | `google/gemini-2.5-flash-lite` | Explicitly set; 2.0 deprecated June 1 (CD-037) |
 | Research and content | `google/gemini-3.1-pro-preview` | Retained for non-spawn research tasks |
 | Tool-use-heavy / exec ops | `anthropic/claude-sonnet-4-6` (direct) | Direct Anthropic API; OpenRouter fallback fails in sub-agent sessions (CD-029) |
 | Code generation / site development | `anthropic/claude-sonnet-4-6` (direct) | Replaces Gemini Pro; Sonnet 1M context at $3/$15 eliminates Pro advantage (CD-031) |
@@ -322,7 +323,7 @@ The report is the input to assignment decisions. Assignments are the output. The
 | OpenClaw version | v2026.3.2 | Post-update exec settings: `security=full, ask=off` |
 | Gateway | Running, loopback 127.0.0.1:18789 | PID active |
 | Slack | Connected, #magination (C0AGNFVRKFA). Thread session model: `historyScope: thread`, `inheritParent: false` | Full 21-scope manifest, Socket Mode. Each thread = isolated session key (CD-030). |
-| Heartbeat | 2h interval | Model: Gemini 2.0 Flash Lite. Cost-reduction holding pattern. |
+| Heartbeat | 2h interval | Model: `openrouter/google/gemini-2.5-flash-lite` (CD-037). Explicitly set — was inheriting Sonnet. |
 | Browser tool | Chrome at `/Applications/Google Chrome.app` | CDP on port 18792 |
 | Git repos | Notion-Mirror (public), magis-workshop (private, read/write SSH deploy key) | Plus project-specific repos |
 | Remote access | SSH + Screen Sharing from M5 | VNC direct to 10.0.0.102 for GUI |
@@ -475,8 +476,8 @@ Any messaging channel used with Magi must support:
 | SSH keys for GitHub | `~/.ssh` on Metacarcinus | SSH agent | Never in Notion |
 | magis-workshop deploy key | `id_ed25519_github` on Metacarcinus | SSH, scoped to magis-workshop-repo only (read/write) | Never in Notion |
 | WHC hosting credentials | Locally on Metacarcinus | Used by deploy scripts | Never in Notion |
-| Open Brain API key (`OPEN_BRAIN_KEY`) | macOS keychain on Metacarcinus | Passed as `x-brain-key` header to Supabase edge functions | Verify access mechanism post-update (see §9.2) |
-| Magi Brain API key (`MAGI_BRAIN_KEY`) | macOS keychain on Metacarcinus | Passed as `x-brain-key` header to Supabase edge functions | Verify access mechanism post-update (see §9.2) |
+| Open Brain API key (`OPEN_BRAIN_KEY`) | macOS keychain on Metacarcinus | Passed as `x-brain-key` header to Supabase edge functions | Local env var name. Supabase-side secret is `MCP_ACCESS_KEY`. Verify access mechanism post-update (see §9.2). Last rotated 2026-03-16 (CD-036). |
+| Magi Brain API key (`MAGI_BRAIN_KEY`) | macOS keychain on Metacarcinus | Passed as `x-brain-key` header to Supabase edge functions | Local env var name. Supabase-side secret is `MCP_ACCESS_KEY`. Verify access mechanism post-update (see §9.2). Last rotated 2026-03-16 (CD-036). |
 | Messaging channel tokens | Managed by OpenClaw channel integration | Loaded by OpenClaw | Never in Notion |
 
 ### §9.2 Brain Key Access Discipline
@@ -589,6 +590,7 @@ Per CONTRACT (Hub) §6, when this contract is updated, downstream documents in t
 | 0.4.0 | 2026-03-07 | Magi Brain as second memory instance. Session-start ritual. Post-update exec settings discipline. Brain key access hardening. |
 | 1.0.0 | 2026-03-11 | Major rewrite. Agent topology codified as first-class architecture (§3): role registry, delegation pattern, learning loop, skill lifecycle, strategic arbiter invocation rules. Three-memory model promoted to platform invariant (§4) with write routing, read patterns, and hygiene rules. Model routing restructured (§5): roles are architecture, model assignments are configuration, model capability report as standing artifact. Brain Stem integration surface defined (§10). Airtable write gate codified as Phase 1 invariant (§7.4). Hardware constraints on agent topology acknowledged (§3.6). All prior deviation log entries preserved. |
 | 1.0.0 | 2026-03-12 | Deployment complete (Session C). Post-deployment model routing revisions: Flash promoted to coordinator default (Sonnet cost $0.27 for a [MEMORY.md](http://memory.md/) update); Sonnet promoted to daily arbiter default (Opus morning brief cost $0.75); Opus demoted to on-demand only. Node.js v22.22.0 installed. Brain access confirmed as MCP wrapper pattern for search, direct REST for writes. Exec settings verified surviving gateway restart. Security posture reviewed — cleartext OPEN_BRAIN_KEY removed from ~/.openclaw/.env. |
+| 1.0.0 | 2026-03-16 | Mar 14–16 operational refinements (CDs 029–037). Direct Anthropic API exception added to §5.1 (CD-029). §5.2 routing table updated: Sonnet promoted to coordinator default (CD-032), Haiku adopted as volume executor default (CD-033), heartbeat explicitly set to gemini-2.5-flash-lite (CD-037), code generation reassigned to Sonnet (CD-031). §6.1 Slack row updated with thread session model (CD-030). §3.2 Volume Executor memory access updated — Magi Brain read access for executors (CD-034). §9.1 credential registry updated with MCP_ACCESS_KEY architecture and rotation date (CD-036). |
 
 ---
 
