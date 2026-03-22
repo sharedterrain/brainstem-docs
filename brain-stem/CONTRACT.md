@@ -3,8 +3,8 @@
 ```yaml
 ---
 doc_id: "contract_brain_stem"
-last_updated: "2026-03-07"
-contract_version: "0.4.0"
+last_updated: "2026-03-19"
+contract_version: "0.5.0"
 parent_contract: "contract_hub"
 ---
 ```
@@ -27,7 +27,7 @@ parent_contract: "contract_hub"
 
 - **Last known good commit:** 
 
-- **Last change:** v0.4.0 — §2 added Supabase/Open Brain as external dependency. §3b added Semantic Memory provider row. §3.5 added Memory Interface definition. §13 updated Phase 1 and Phase 2 implementation state to reflect Open Brain HTTP modules. Reconciliation of as-built Open Brain write path across 12 live Make modules (of 24 total routes including fix-delete routes and parked backup array).
+- **Last change:** v0.5.0 — §9 Data Contracts reconciled to as-built Airtable schemas from column-level audit. All 6 tables updated with actual field inventory (Source, Source Link, linked records, Tags as Long text, Entity Type, Calendar Source, Calendar Sync Status, Filed To as Single select). Prior §9 was Phase 0 design; this version reflects live Airtable state.
 
 ---
 
@@ -617,7 +617,11 @@ Classify the following brain dump into ONE of these categories:
 
 - Original Text (Long text)
 
-- Filed To (Single line text)
+- Filed To (Single select: People, Projects, Ideas, Admin, Events)
+
+- Destination Name (Single line text)
+
+- Destination URL (URL)
 
 - Confidence (Number, 0.0-1.0)
 
@@ -629,15 +633,51 @@ Classify the following brain dump into ONE of these categories:
 
 - Slack Thread TS (Single line text)
 
-- Captured At (Date)
-
-- Destination Name (Single line text)
-
-- Destination URL (URL)
+- Created (Created time, auto)
 
 - AI Output Raw (Long text)
 
 - Error Details (Long text)
+
+- Linked People (Linked record → People)
+
+- Linked Projects (Linked record → Projects)
+
+- Linked Ideas (Linked record → Ideas)
+
+- Linked Admin (Linked record → Admin)
+
+- Destination Record ID (Single line text)
+
+- Source (Single select: Slack)
+
+- Source Link (URL)
+
+### People Table
+
+**Fields:**
+
+- Name (Single line text)
+
+- Context (Long text)
+
+- Follow-Ups (Long text)
+
+- Tags (Long text)
+
+- Last Touched (Date)
+
+- Source (Single select: Slack, Manual, Research)
+
+- Source Link (URL)
+
+- Inbox Router Log (Linked record → Inbox Log)
+
+- Drafts (Linked record → Drafts)
+
+- Events (Linked record → Events)
+
+- Entity Type (Single select: Person, Organization)
 
 ### Projects Table
 
@@ -653,23 +693,17 @@ Classify the following brain dump into ONE of these categories:
 
 - Notes (Long text)
 
-- Last Touched (Date)
-
-- Tags (Multiple select)
-
-### People Table
-
-**Fields:**
-
-- Name (Single line text)
-
-- Context (Long text)
-
-- Follow-ups (Long text)
+- Tags (Long text)
 
 - Last Touched (Date)
 
-- Tags (Multiple select)
+- Source (Single select: Slack, Manual, Research)
+
+- Source Link (URL)
+
+- Inbox Router Log (Linked record → Inbox Log)
+
+- Drafts (Linked record → Drafts)
 
 ### Ideas Table
 
@@ -681,9 +715,17 @@ Classify the following brain dump into ONE of these categories:
 
 - Notes (Long text)
 
+- Tags (Long text)
+
 - Last Touched (Date)
 
-- Tags (Multiple select)
+- Source (Single select: Slack, Manual, Research)
+
+- Source Link (URL)
+
+- Inbox Router Log (Linked record → Inbox Log)
+
+- Drafts (Linked record → Drafts)
 
 ### Admin Table
 
@@ -693,11 +735,21 @@ Classify the following brain dump into ONE of these categories:
 
 - Due Date (Date)
 
-- Status (Single select: Todo, In Progress, Done)
+- Status (Single select: Todo, Done)
 
 - Notes (Long text)
 
-- Created (Date)
+- Tags (Long text)
+
+- Created (Created time, auto)
+
+- Source (Single select: Slack, Manual, Research)
+
+- Source Link (URL)
+
+- Inbox Router Log (Linked record → Inbox Log)
+
+- Drafts (Linked record → Drafts)
 
 ### Events Table
 
@@ -705,19 +757,27 @@ Classify the following brain dump into ONE of these categories:
 
 - Title (Single line text)
 
+- Event Type (Single select: Meeting, Appointment, Deadline, Volunteering, Workshop)
+
 - Start Time (Date)
 
 - End Time (Date)
 
 - Attendees (Long text)
 
-- Location (Single line text)
-
-- Event Type (Single select: Meeting, Deadline, Appointment)
+- Location (Long text)
 
 - Notes (Long text)
 
-- Created (Date)
+- Tags (Long text)
+
+- Calendar Source (Single select: Google Calendar, Manual Entry, Slack)
+
+- Source Link (URL)
+
+- Calendar Sync Status (Single select: Synced, Pending, Failed, Not Synced)
+
+- Inbox Log (Linked record → Inbox Log)
 
 ---
 
@@ -821,6 +881,7 @@ Classify the following brain dump into ONE of these categories:
 
 | **Version** | **Date** | **Description** |
 | --- | --- | --- |
+| 0.5.0 | 2026-03-19 | §9 Data Contracts reconciled to as-built Airtable schemas via column-level screenshot audit. Changes: Tags field corrected from Multiple select → Long text (all destination tables). Source (Single select) and Source Link (URL) added to all tables. Linked record fields added (Inbox Log ↔ destination tables, Drafts, Events on People). People: Follow-ups → Follow-Ups, added Entity Type (Person/Organization). Projects: no structural change beyond shared fields. Ideas: no structural change beyond shared fields. Admin: Status simplified to Todo/Done, added Tags. Events: Event Type expanded (added Volunteering, Workshop), Calendar Source replaces Source (Google Calendar/Manual Entry/Slack), added Calendar Sync Status, Location changed to Long text. Inbox Log: Filed To changed from text → Single select, Captured At → Created (auto), added Linked People/Projects/Ideas/Admin, Destination Record ID, Source, Source Link. Minor version bump — additive fields + type corrections, no interface shape changes. |
 | 0.4.0 | 2026-03-07 | §2 added Supabase/Open Brain as external dependency (semantic memory write path). §3b added Semantic Memory provider row. §3.5 added Memory Interface definition (fire-and-forget POST to ingest-thought). §13 updated Phase 1 and Phase 2 with Open Brain module counts. Trust boundaries updated. Reconciliation of 12 as-built Make HTTP modules (7 primary/PRO + 5 fix routes). Minor version bump — new interface, additive only, no breaking changes. |
 | 0.3.1 | 2026-03-05 | §8 BD classifier prompt reconciled to live module 48 — full prompt text now authoritative in contract (context block, edge cases, Events fields: start_time, end_time, attendees, location). §9 Events table schema updated to match as-built (Title not Name, added Start Time, End Time, Attendees, Location). Patch bump — no interface changes, documentation reconciliation only. |
 | 0.3.0 | 2026-03-03 | §13 updated to as-built: Phase 1 marked Complete, Phase 2 marked Live (fix: handler, typed-field guards, unfurl prevention). §7 fix route updated from Scaffolded to Live. Minor version bump — no interface changes, additive status update only. |
