@@ -10,8 +10,8 @@ doc_id: "open_brain_build_spec"
 created: "2026-03-04"
 author: "Claude Opus 4.6 (architectural spec)"
 builder: "Claude Sonnet (execution)"
-contract_version: "1.0.0"
-status: "Steps 1-11 Complete — Primary Routes Live"
+contract_version: "1.0.1"
+status: "Steps 1-13 Complete — Primary Routes + Research Brain Live"
 ---
 ```
 
@@ -27,7 +27,7 @@ Open Brain is a semantic memory layer that stores vector embeddings of every cap
 
 ### 2.1 Memory Topology
 
-The deployed system uses a **three-memory architecture**. Two are semantic vector stores (Supabase + pgvector); one is local filesystem state. Each instance uses the same codebase pattern (§3–5) but is deployed as an independent Supabase project with its own credentials.
+The deployed system uses a **three-memory architecture** plus a **Research Brain catalogue**. Two memories are semantic vector stores (Supabase + pgvector), deployed as independent Supabase projects with their own credentials; one is local filesystem state. The Research Brain (v1.0.1) is a non-vector catalogue table (`research_returns`) within Jedi's Open Brain project — same instance, same credentials, dedicated Edge Function (`ingest-research`).
 
 ```plain text
 ┌──────────────────────────────────────────────────────────────────┐
@@ -71,13 +71,15 @@ The deployed system uses a **three-memory architecture**. Two are semantic vecto
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+> **v1.0.1:** Jedi's Open Brain now also hosts the Research Brain catalogue — `research_returns` table + `ingest-research` Edge Function, same project and credentials. See §6A Instance Registry.
+
 ### 2.2 Pattern vs Instance
 
 This document serves two purposes:
 
 1. **Reusable pattern** — §3 (schema), §4 (ingest function), §5 (MCP function) describe a generic semantic memory instance. Fork these sections to stand up additional brains.
 
-1. **Instance registry** — §6A documents the two deployed Supabase instances and their roles.
+1. **Instance registry** — §6A documents the two deployed Supabase instances, the Research Brain catalogue table, and their roles.
 
 ### 2.3 Single-Instance Data Flow (applies to each brain)
 
@@ -435,16 +437,19 @@ Deno.serve(async (req: Request) => {
 
 ## 6A. Instance Registry
 
-Two Supabase instances are deployed. Both use the identical schema (§3.2), matching function (§3.2), and RLS policy (§3.2). The Edge Functions follow the same patterns (§4–5) with instance-specific naming.
+Two Supabase instances are deployed, plus a **Research Brain catalogue table** within Jedi's Open Brain project. The two vector-store instances (Jedi's Open Brain and Magi Brain) use the identical schema (§3.2), matching function (§3.2), and RLS policy (§3.2). Research Brain uses a separate table (`research_returns`) and dedicated Edge Function (`ingest-research`) but shares the same project and credentials as Jedi's Open Brain. All Edge Functions follow the same patterns (§4–5) with instance-specific naming.
 
-| **Instance** | **Project Ref** | **Ingest Function** | **MCP Function** | **Access Key Env Var** | **Writers** | **Readers** |
-| --- | --- | --- | --- | --- | --- | --- |
-| Jedi's Open Brain (shared) | `<<SUPABASE_PROJECT_REF>>` | `ingest-thought` | `open-brain-mcp` | `<<OPEN_BRAIN_ACCESS_KEY>>` | Brain Stem (Make), Magi | Magi, Claude Desktop/Code, any MCP client |
-| Magi Brain (Magi-exclusive) | `<<MAGI_BRAIN_REF>>` | `magi-brain-ingest` | `magi-brain-mcp` | `<<MAGI_BRAIN_ACCESS_KEY>>` | Magi only | Magi only |
+| **Instance** | **Project Ref** | **Table** | **Ingest Function** | **MCP Function** | **Access Key Env Var** | **Writers** | **Readers** |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Jedi's Open Brain (shared) | `<<SUPABASE_PROJECT_REF>>` | `thoughts` | `ingest-thought` | `open-brain-mcp` | `<<OPEN_BRAIN_ACCESS_KEY>>` | Brain Stem (Make), Magi | Magi, Claude Desktop/Code, any MCP client |
+| Research Brain (catalogue) | `<<SUPABASE_PROJECT_REF>>` (shared) | `research_returns` | `ingest-research` | — (no MCP read yet) | `<<OPEN_BRAIN_ACCESS_KEY>>` (shared) | Brain Stem Scenario B | Claude (via Supabase MCP), future read tooling |
+| Magi Brain (Magi-exclusive) | `<<MAGI_BRAIN_REF>>` | `thoughts` | `magi-brain-ingest` | `magi-brain-mcp` | `<<MAGI_BRAIN_ACCESS_KEY>>` | Magi only | Magi only |
 
 **Jedi's Open Brain** stores shared knowledge: Brain Stem captures (people, projects, ideas, admin, events), Magi's decisions and insights, and any manual entries. Multiple systems write and read.
 
 **Magi Brain** stores Magi's private operational memory: cross-session patterns, learned behaviors, tool usage observations, and operational context that only Magi needs. No external writers or readers. This is Magi's equivalent of institutional knowledge — what it has learned about how things work across sessions.
+
+**Research Brain** stores raw research article metadata returned by Perplexity (or any research provider) via Brain Stem Scenario B. It is a catalogue — no embeddings, no vector search in Phase 3. Deduplication uses a partial unique index on `url + published_date` (WHERE NOT NULL) with `ON CONFLICT DO NOTHING`; an empty result set signals a duplicate.
 
 **Metadata differentiation:**
 
@@ -453,6 +458,8 @@ Two Supabase instances are deployed. Both use the identical schema (§3.2), matc
 - Magi Brain: `metadata.source` is always `magi-brain` — instance isolation provides the access boundary, not metadata filtering
 
 **Key design principle:** Instance isolation over metadata filtering. Rather than storing everything in one database and filtering by source, each actor class gets its own Supabase project. This provides credential-level access control without complex RLS policies.
+
+**Exception:** Research Brain deliberately uses table isolation within Jedi's Open Brain project rather than a separate instance. Rationale: free tier limits 2 projects, no semantic bleed risk from a separate table, same credential chain. Documented in Brain-Stem CONTRACT deviation log (v0.6.1).
 
 ---
 
@@ -712,6 +719,7 @@ Execute in this order. Each step is independently testable.
 | ✅ 10 | Test Magi round-trip: store a thought, then search for it semantically | 5 min | Stored thought returns on semantic query |
 | ✅ 11 | Add HTTP POST modules to Brain Stem Make scenario (12 modules — primary + fix, fallback parked) | 45 min | 11 records in Supabase, all 6 destinations, full round-trip confirmed |
 | ⏸️ 12 | Fix route end-to-end test (deferred — requires naturally occurring misclassification) | 10 min | Fix a capture, verify corrected version appears in Supabase |
+| ✅ 13 | Research Brain: `research_returns` migration, `ingest-research` Edge Function deployed, dedup verified (partial unique index on `url + published_date`) | 30 min | Table exists, `ingest-research` returns `{"status":"stored"}`, duplicate → empty result set |
 
 **Total estimated time:** ~2 hours
 
@@ -726,6 +734,7 @@ Supabase Service Role Key: (auto-available in Edge Functions)
 OpenRouter API Key: <<OPENROUTER_API_KEY>>
 MCP Access Key: <<OPEN_BRAIN_ACCESS_KEY>> (generated via openssl rand -hex 32)
 Ingest URL: https://<<SUPABASE_PROJECT_REF>>.supabase.co/functions/v1/ingest-thought
+Research Ingest URL: https://<<SUPABASE_PROJECT_REF>>.supabase.co/functions/v1/ingest-research
 MCP URL: https://<<SUPABASE_PROJECT_REF>>.supabase.co/functions/v1/open-brain-mcp
 
 === MAGI BRAIN CREDENTIALS ===
@@ -772,11 +781,13 @@ Each instance has its own Supabase project, DB password, and MCP access key. The
 
 - No LLM-generated metadata at ingest time (Brain Stem and Magi supply their own)
 
-- No deduplication (same text stored twice = two rows). Acceptable at current volume.
+- No deduplication on `thoughts` table (same text stored twice = two rows). Acceptable at current volume. Note: `research_returns` has dedup via partial unique index on `url + published_date`.
 
 - No deletion/update tools exposed via MCP (manual via Supabase dashboard if needed)
 
 - No Slack confirmation from Open Brain (Brain Stem handles its own confirmations)
+
+- **Edge Function secret rotation requires redeploy** — Supabase Edge Functions cache secrets at deploy time. This surfaces in two scenarios: (1) After rotating any secret (e.g. `MCP_ACCESS_KEY`) via `supabase secrets set`, **all existing Edge Functions** reading it must be redeployed — they continue using the stale cached value until redeployed. (2) When deploying **anything new** — a new Edge Function (e.g. `ingest-research`), a table migration, or any `supabase db push` / `supabase functions deploy` — the deploy refreshes secrets only for the function being deployed, not for existing functions. If a secret was rotated between existing functions' last deploy and now, they silently break. Affected functions: `ingest-thought`, `open-brain-mcp`, `ingest-research`, and Magi Brain equivalents. Symptom: 401 Unauthorized on previously-working endpoints.
 
 **Future possibilities:**
 
@@ -824,6 +835,6 @@ This avoids Brain Stem needing LLM synthesis capabilities and avoids Magi needin
 
 ---
 
-*Steps 1–11 complete. Step 12 (fix route e2e test) deferred pending naturally occurring misclassification. Fallback routes parked for future tuning. No new credentials this session.*
+*Steps 1–11 and 13 complete. Step 12 (fix route e2e test) deferred pending naturally occurring misclassification. Step 13 (Research Brain) added 2026-03-25. Fallback routes parked for future tuning. No new credentials this session.*
 
 ---

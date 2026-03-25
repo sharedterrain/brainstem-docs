@@ -4,7 +4,7 @@
 ---
 doc_id: "phase_3"
 last_updated: "2026-03-24"
-contract_version: "0.5.0"
+contract_version: "0.6.1"
 status: "Draft — pre-implementation"
 revision: "v2 — dual-trigger fix, linked record fix, fetch module added, Research Jobs schema added, Results Per Run removed, minor cleanups"
 ---
@@ -14,7 +14,7 @@ revision: "v2 — dual-trigger fix, linked record fix, fetch module added, Resea
 
 ## Overview
 
-Phase 3 builds automated research on top of the existing Brain Stem pipeline. A scheduled daily runner (Scenario C) triggers a single-job runner (Scenario B) which sweeps 5 domain slots against a research provider, surfaces articles into the Airtable Articles table and a new Research Brain (separate Supabase instance), enriches each article via a Claude end-of-run call, and flags the top 3 as Morning Pick. An ad-hoc R: prefix handler in Scenario A triggers Scenario B immediately for single-job runs.
+Phase 3 builds automated research on top of the existing Brain Stem pipeline. A scheduled daily runner (Scenario C) triggers a single-job runner (Scenario B) which sweeps 5 domain slots against a research provider, surfaces articles into the Airtable Articles table and the Research Brain (`research_returns` table within Open Brain's Supabase project), enriches each article via a Claude end-of-run call, and flags the top 3 as Morning Pick. An ad-hoc R: prefix handler in Scenario A triggers Scenario B immediately for single-job runs.
 
 **What gets built:**
 
@@ -22,7 +22,7 @@ Phase 3 builds automated research on top of the existing Brain Stem pipeline. A 
 
 - Domains table (new, Airtable) — standing domain configs for scheduled sweeps
 
-- Research Brain (new Supabase instance) — raw catalogue of every research return
+- Research Brain (`research_returns` table + `ingest-research` Edge Function within Open Brain project) — raw catalogue of every research return
 
 - Scenario B — single-job research runner (webhook trigger)
 
@@ -142,9 +142,9 @@ Used for ad-hoc R: queries. Created by the R: handler in Scenario A. Frequency =
 
 ---
 
-## 2. Research Brain (New Supabase Instance)
+## 2. Research Brain (Table within Open Brain Project)
 
-A raw catalogue of every article Perplexity returns. Separate from Jedi's Open Brain — receives unfiltered volume. Open Brain receives only what Jedidiah deliberately promotes (Phase 4-5).
+A raw catalogue of every article Perplexity returns. Lives within Jedi's Open Brain Supabase project as a dedicated table (`research_returns`) and Edge Function (`ingest-research`), sharing the same instance and credentials. Receives unfiltered volume. Open Brain's `thoughts` table receives only what Jedidiah deliberately promotes (Phase 4-5).
 
 **Schema spec (input for Claude Code setup session):**
 
@@ -162,9 +162,9 @@ A raw catalogue of every article Perplexity returns. Separate from Jedi's Open B
 
 **Dedup:** URL + Published Date. Identical entries skipped. Updated content (same URL, new date) ingested as new record.
 
-**Edge Function pattern:** Same as Open Brain `ingest-thought`. Separate Supabase project, separate `x-brain-key`, separate credentials. No shared instance.
+**Edge Function pattern:** Dedicated `ingest-research` function within Jedi's Open Brain project. Same auth mechanism (`x-brain-key` header), same `MCP_ACCESS_KEY` credential. No separate instance — shares project with Open Brain's `ingest-thought`.
 
-**Natural clustering note:** Thematically similar but distinct articles cluster in vector space without dedup — desirable for recurrence detection during future review sessions. Full citation volume is intentional.
+**Natural clustering note:** Full citation volume is intentional. When embeddings are added (post-Phase 3), thematically similar but distinct articles will cluster in vector space — desirable for recurrence detection during future review sessions.
 
 **Review and pruning:** Deferred. Develop protocol with Magi + Supabase MCP as needed.
 
@@ -309,7 +309,7 @@ Fire-and-forget. After Article POST, before Domain/Job PATCH.
 }
 ```
 
-**Auth:** `x-brain-key: <<RESEARCH_BRAIN_ACCESS_KEY>>` **Endpoint:**`https://<<RESEARCH_BRAIN_PROJECT_REF>>.supabase.co/functions/v1/ingest-thought`
+**Auth:** `x-brain-key: <<OPEN_BRAIN_ACCESS_KEY>>` (same as Open Brain) **Endpoint:** `https://<<SUPABASE_PROJECT_REF>>.supabase.co/functions/v1/ingest-research`
 
 ### 3.6 Domain / Job PATCH (post-run)
 
@@ -497,7 +497,7 @@ Promotion from Articles to Open Brain is a deliberate human action, designed in 
 
 | Step | What | Prereq |
 | --- | --- | --- |
-| 1 | Stand up Research Brain Supabase instance (schema per §2) | Claude Code session |
+| 1 | Create `research_returns` table + deploy `ingest-research` Edge Function in Open Brain project (schema per §2) | Claude Code session |
 | 2 | Create Research Lens table in Airtable | — |
 | 3 | Create Domains table in Airtable | — |
 | 4 | Add Morning Pick, Run ID, Domain fields to Articles table | — |
@@ -567,21 +567,21 @@ Promotion from Articles to Open Brain is a deliberate human action, designed in 
 
 **🔴 Must resolve before or during Phase 3:**
 
-- CONTRACT §9 — add Domains, Research Lens, and Research Jobs schemas (Research Jobs schema now defined in §1c of this doc)
+- CONTRACT §9 — add Domains, Research Lens, and Research Jobs schemas — ✅ done in v0.6.0
 
-- CONTRACT §3.5 Memory Interface — add Research Brain as a new memory instance
+- CONTRACT §3.5 Memory Interface — add Research Brain — ✅ done in v0.6.0, corrected to as-built in v0.6.1 (table within Open Brain, not separate instance)
 
-- Security Placeholders — add `<<RESEARCH_BRAIN_PROJECT_REF>>` and `<<RESEARCH_BRAIN_ACCESS_KEY>>`
+- Security Placeholders — ✅ `<<RESEARCH_BRAIN_PROJECT_REF>>` and `<<RESEARCH_BRAIN_ACCESS_KEY>>` removed in v0.6.1 (uses Open Brain's shared credentials)
 
 - INV-001 compliance on R: route — ✅ resolved in §5.1 (Inbox Log POST included)
 
 **🟡 Additive updates:**
 
-- CONTRACT §13 — add Phase 3 scope definition
+- CONTRACT §13 — add Phase 3 scope definition — ✅ done in v0.6.0
 
 - contracts/spec — **full rewrite required** (not a version bump). Current state is v0.2.0. Gaps: R: route currently shows `llm_mode: extract_only` and `prompt_id: research_extract_v1` — Phase 3 R: route calls Perplexity not Claude; fix: route shows `implementation: scaffolded` — should be `implemented` (live since Phase 2); Memory Interface and Supabase provider missing entirely; Articles, Research Jobs, Domains table definitions absent.
 
-- CONTRACT version bump to v0.6.0 (new tables, new memory instance)
+- CONTRACT version bump — ✅ v0.6.0 (new tables, new memory instance) + v0.6.1 (Research Brain as-built reconciliation)
 
 ---
 

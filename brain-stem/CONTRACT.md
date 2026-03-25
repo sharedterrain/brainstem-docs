@@ -3,8 +3,8 @@
 ```yaml
 ---
 doc_id: "contract_brain_stem"
-last_updated: "2026-03-24"
-contract_version: "0.6.0"
+last_updated: "2026-03-25"
+contract_version: "0.6.1"
 parent_contract: "contract_hub"
 ---
 ```
@@ -27,7 +27,7 @@ parent_contract: "contract_hub"
 
 - **Last known good commit:** 
 
-- **Last change:** v0.6.0 — Phase 3 Research Pipeline. §9 added Domains, Research Lens, Research Jobs, Articles schemas. §3.5 added Research Brain Memory Interface (separate write path). §3b added Research Memory provider row. §7 R: route updated to Phase 3 implementation. §10 INV-001 extended to R: route. §11 added Phase 3 security placeholders. §13 added Phase 3 scope definition.
+- **Last change:** v0.6.1 — Research Brain as-built reconciliation. Implemented as table + dedicated Edge Function within Open Brain Supabase project (not separate instance). §3.5, §3b, §2, §11, §13 updated to reflect as-built.
 
 ---
 
@@ -79,9 +79,7 @@ Brain Stem is a **capture, classification, and publishing system** that transfor
 
 - Airtable (storage)
 
-- Supabase + Open Brain (semantic memory — write path via Edge Function)
-
-- Supabase + Research Brain (research memory — separate instance, write path via Edge Function)
+- Supabase + Open Brain (semantic memory + research memory — write paths via Edge Functions; Research Brain is a table + dedicated Edge Function within the same Supabase project)
 
 ---
 
@@ -127,7 +125,7 @@ The following table maps each functional stage to its current provider. This map
 | Publishing | TBD per platform | TBD |
 | Metrics | TBD per platform | TBD |
 | Semantic Memory | Supabase Edge Function (Open Brain) | x-brain-key header |
-| Research Memory | Research Brain (Supabase) — REST via ingest-thought Edge Function (write-only from Make) | x-brain-key header — separate Supabase project, separate credentials |
+| Research Memory | Research Brain (`research_returns` table + `ingest-research` Edge Function within Open Brain Supabase project) | x-brain-key header — same credentials as Open Brain |
 
 **Trust boundaries (provider-specific):**
 
@@ -139,9 +137,7 @@ The following table maps each functional stage to its current provider. This map
 
 - Publishing channels: TBD per platform
 
-- [Make.com](http://make.com/) → Supabase Edge Function (Open Brain): x-brain-key header (fire-and-forget)
-
-- [Make.com](http://make.com/) → Supabase Edge Function (Research Brain): x-brain-key header (fire-and-forget, separate credentials)
+- [Make.com](http://make.com/) → Supabase Edge Functions (Open Brain `ingest-thought` + Research Brain `ingest-research`): x-brain-key header (fire-and-forget, same project, same credentials)
 
 ---
 
@@ -277,7 +273,7 @@ Each boundary in the pipeline has a named interface that defines the data shape 
 
 ### Memory Interface (Open Brain)
 
-**Scope:** This interface definition covers Open Brain writes from Make only. Research Brain is a separate write path with its own payload contract (see Research Brain Memory Interface below).
+**Scope:** This interface definition covers Open Brain writes from Make only (table: `thoughts`, function: `ingest-thought`). Research Brain uses a separate table and Edge Function within the same Supabase project (see Research Brain Memory Interface below).
 
 **Boundary:** Pipeline destination routes → Semantic memory layer
 
@@ -331,13 +327,15 @@ Each boundary in the pipeline has a named interface that defines the data shape 
 
 **Output:** None (fire-and-forget; response not parsed).
 
-**Current provider:** Supabase Edge Function (`ingest-thought`) — separate Supabase project from Open Brain
+**Current provider:** Supabase Edge Function (`ingest-research`) — same Supabase project as Open Brain, dedicated Edge Function and table (`research_returns`)
 
-**Auth:** `x-brain-key` header with Research Brain access key
+**Auth:** `x-brain-key` header with same `MCP_ACCESS_KEY` as Open Brain
 
-**Endpoint:** `https://<<RESEARCH_BRAIN_PROJECT_REF>>.supabase.co/functions/v1/ingest-thought`
+**Endpoint:** `https://<<SUPABASE_PROJECT_REF>>.supabase.co/functions/v1/ingest-research`
 
-**Note:** Research Brain receives unfiltered volume from all research runs. Open Brain receives only deliberately promoted content (Phase 4-5). The two instances share the same Edge Function pattern but have separate projects, credentials, and payload schemas.
+**Dedup:** Partial unique index on `url + published_date` (WHERE NOT NULL). INSERT uses `ON CONFLICT DO NOTHING`. Duplicate = empty result set (not null id).
+
+**Note:** Research Brain receives unfiltered volume from all research runs. Open Brain receives only deliberately promoted content (Phase 4-5). Both share the same Supabase project and credentials but use separate tables (`research_returns` vs `thoughts`) and separate Edge Functions (`ingest-research` vs `ingest-thought`). No semantic bleed risk — data isolation is at the table level.
 
 ---
 
@@ -959,10 +957,6 @@ Classify the following brain dump into ONE of these categories:
 
 - `<<PERPLEXITY_API_KEY>>` — Perplexity API authentication
 
-- `<<RESEARCH_BRAIN_PROJECT_REF>>` — Research Brain Supabase project reference
-
-- `<<RESEARCH_BRAIN_ACCESS_KEY>>` — Research Brain x-brain-key header value
-
 - `<<ARTICLES_TABLE_ID>>` — Airtable Articles table ID
 
 - `<<DOMAINS_TABLE_ID>>` — Airtable Domains table ID
@@ -992,6 +986,20 @@ Classify the following brain dump into ONE of these categories:
 - Airtable write failure → Log error, preserve original message
 
 - Empty message → Route to Needs Review with confidence 0.0
+
+### Operational: Supabase Edge Function Secret Caching
+
+Supabase Edge Functions cache secrets at deploy time. This creates two failure modes for the Make → Supabase boundary:
+
+1. **Secret rotation without redeploy** — After `supabase secrets set` (e.g. rotating `MCP_ACCESS_KEY`), all existing Edge Functions continue using the stale cached value. They must be explicitly redeployed to pick up the new secret.
+
+1. **New deployment invalidates siblings** — Deploying anything new (a new Edge Function, a table migration, `supabase db push`, `supabase functions deploy`) refreshes secrets only for the function being deployed. If a secret was rotated between existing functions' last deploy and now, they silently break.
+
+**Affected functions:** `ingest-thought`, `open-brain-mcp`, `ingest-research`, and Magi Brain equivalents.
+
+**Symptom:** 401 Unauthorized on previously-working endpoints. Fire-and-forget pushes from Make fail silently (no error handling by design — §3.5 Memory Interface).
+
+**Mitigation:** After any secret rotation or new function deployment, redeploy all Edge Functions in the affected Supabase project.
 
 ---
 
@@ -1043,7 +1051,7 @@ Classify the following brain dump into ONE of these categories:
 
 - [Airtable] Articles table additions: Domain (linked → Domains), Run ID, Morning Pick
 
-- [Supabase] Research Brain: new Supabase instance (separate from Open Brain), `ingest-thought` Edge Function, fire-and-forget write from Scenario B (§3.5 Research Brain Memory Interface)
+- [Supabase] Research Brain: `research_returns` table + `ingest-research` Edge Function within Open Brain Supabase project (same credentials), fire-and-forget write from Scenario B (§3.5 Research Brain Memory Interface)
 
 - [[Make.com](http://make.com/)] Scenario B: webhook-triggered research runner. Supports two modes — sweep (all active Domains + Claude-generated slots 4–5 from Research Lens) and job (single Research Job, triggered by R: route or future consumers). The mode flag pattern is architecturally significant — a single scenario handles both scheduled and ad-hoc research via payload-driven branching.
 
@@ -1067,6 +1075,7 @@ Classify the following brain dump into ONE of these categories:
 
 | **Version** | **Date** | **Description** |
 | --- | --- | --- |
+| 0.6.1 | 2026-03-25 | Research Brain as-built reconciliation. Spec called for a separate Supabase instance; implemented as a dedicated table (`research_returns`) + Edge Function (`ingest-research`) within the existing Open Brain Supabase project. Rationale: free tier limits 2 projects, no semantic bleed risk from separate table, same credential chain simplifies Make configuration. §3.5 endpoint corrected (`ingest-research` not `ingest-thought`, `<<SUPABASE_PROJECT_REF>>` not `<<RESEARCH_BRAIN_PROJECT_REF>>`). §11 removed two obsolete placeholders. §2, §3b, §13 updated throughout. Patch bump — no interface shape change, documentation reconciliation only. |
 | 0.6.0 | 2026-03-24 | Phase 3 Research Pipeline additions. §9 added Domains, Research Lens, Research Jobs, Articles table schemas. §3.5 added Research Brain Memory Interface (separate write path from Open Brain — different payload schema, separate Supabase instance). §3b added Research Memory provider row. §7 R: route updated from scaffolded to Phase 3 implementation (Perplexity provider, not Claude). §10 INV-001 coverage explicitly extended to R: route. §11 added 7 security placeholders (Perplexity key, Research Brain credentials, 4 Airtable table IDs). §13 added Phase 3 scope definition including Scenario B mode flag pattern (sweep/job). Minor version bump — new tables, new memory instance, new route implementation, all additive. |
 | 0.5.0 | 2026-03-19 | §9 Data Contracts reconciled to as-built Airtable schemas via column-level screenshot audit. Changes: Tags field corrected from Multiple select → Long text (all destination tables). Source (Single select) and Source Link (URL) added to all tables. Linked record fields added (Inbox Log ↔ destination tables, Drafts, Events on People). People: Follow-ups → Follow-Ups, added Entity Type (Person/Organization). Projects: no structural change beyond shared fields. Ideas: no structural change beyond shared fields. Admin: Status simplified to Todo/Done, added Tags. Events: Event Type expanded (added Volunteering, Workshop), Calendar Source replaces Source (Google Calendar/Manual Entry/Slack), added Calendar Sync Status, Location changed to Long text. Inbox Log: Filed To changed from text → Single select, Captured At → Created (auto), added Linked People/Projects/Ideas/Admin, Destination Record ID, Source, Source Link. Minor version bump — additive fields + type corrections, no interface shape changes. |
 | 0.4.0 | 2026-03-07 | §2 added Supabase/Open Brain as external dependency (semantic memory write path). §3b added Semantic Memory provider row. §3.5 added Memory Interface definition (fire-and-forget POST to ingest-thought). §13 updated Phase 1 and Phase 2 with Open Brain module counts. Trust boundaries updated. Reconciliation of 12 as-built Make HTTP modules (7 primary/PRO + 5 fix routes). Minor version bump — new interface, additive only, no breaking changes. |
