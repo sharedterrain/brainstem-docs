@@ -2,7 +2,7 @@
 
 **Machine-readable specification for Brain Stem**
 
-This is the automation anchor. Markdown CONTRACT is human-readable; this spec is machine-parseable. Aligned to CONTRACT v0.6.1.
+This is the automation anchor. Markdown CONTRACT is human-readable; this spec is machine-parseable. Aligned to CONTRACT v0.7.0.
 
 ---
 
@@ -10,7 +10,7 @@ This is the automation anchor. Markdown CONTRACT is human-readable; this spec is
 
 ```yaml
 project: "brainstem"
-contract_version: "0.6.1"
+contract_version: "0.7.0"
 spec_version: "1.0.0"  # full rewrite from 0.2.0
 last_updated: "2026-03-25"
 
@@ -150,7 +150,7 @@ data_contracts:
         - Status            # Pending, Filed, Error, NeedsReview
         - SlackChannel
         - SlackMessageTS
-        - CapturedAt
+        - Created           # Created time (auto)
       optional_fields:
         - SlackThreadTS
         - DestinationName
@@ -171,6 +171,7 @@ data_contracts:
         - Context
         - FollowUps
         - Tags              # Long text (NOT Multiple select)
+        - EntityType        # Single select: Person, Organization
 
     Projects:
       required_fields:
@@ -200,10 +201,11 @@ data_contracts:
       optional_fields:
         - DueDate
         - Notes
+        - Tags              # Long text (NOT Multiple select)
 
     Events:
       required_fields:
-        - Name
+        - Title
         - Created
       optional_fields:
         - EventType
@@ -211,6 +213,10 @@ data_contracts:
         - Attendees
         - Location
         - Notes
+        - StartTime
+        - EndTime
+        - Tags              # Long text (NOT Multiple select)
+        - CalendarSyncStatus  # Synced, Pending, Failed, Not Synced
 
     # --- Phase 3 tables (designed, not yet built) ---
 
@@ -431,55 +437,30 @@ schemas:
 
 # ═══════════════════════════════════════════════════════════════
 # INVARIANTS
-# See CONTRACT §10
+# Authoritative definitions live in CONTRACT §10.
+# This section indexes invariants for machine consumption (id + severity + applies_to only).
 # ═══════════════════════════════════════════════════════════════
 invariants:
-  - id: "INV-001"
-    severity: "critical"
-    description: "Every capture yields exactly one Inbox Log record"
-    applies_to: ["scenario_a"]
-
-  - id: "INV-002"
-    severity: "warning"
-    description: "PRO route must set confidence to 1.0"
-    applies_to: ["PRO"]
-
-  - id: "INV-003"
-    severity: "critical"
-    description: "Inbox Log with Status=Filed must have DestinationName and DestinationURL"
-    applies_to: ["scenario_a"]
-
-  - id: "INV-004"
-    severity: "critical"
-    description: "Confidence must be between 0.0 and 1.0"
-    applies_to: ["BD"]
-
-  - id: "INV-005"
-    severity: "critical"
-    description: "OriginalText in Inbox Log must never be modified after creation"
-    applies_to: ["scenario_a"]
-
-  - id: "INV-006"
-    severity: "critical"
-    description: "R: route must create Inbox Log record before triggering Scenario B"
-    applies_to: ["R"]
-
-  - id: "INV-007"
-    severity: "warning"
-    description: "Memory push (Open Brain / Research Brain) is fire-and-forget — failure must not block primary pipeline"
-    applies_to: ["scenario_a", "scenario_b"]
-
-  - id: "INV-008"
-    severity: "warning"
-    description: "Domain and ResearchJob links on Articles are mutually exclusive per record"
-    applies_to: ["scenario_b"]
+  - { id: "INV-001", severity: "critical", applies_to: ["scenario_a"] }
+  - { id: "INV-002", severity: "warning", applies_to: ["PRO"] }
+  - { id: "INV-003", severity: "critical", applies_to: ["scenario_a"] }
+  - { id: "INV-004", severity: "critical", applies_to: ["BD"] }
+  - { id: "INV-005", severity: "critical", applies_to: ["scenario_a"] }
+  - { id: "INV-006", severity: "warning", applies_to: ["scenario_a"] }
+  - { id: "INV-007", severity: "warning", applies_to: ["scenario_a"] }
+  - { id: "INV-008", severity: "warning", applies_to: ["BD"] }
+  - { id: "INV-009", severity: "critical", applies_to: ["BD", "PRO", "fix"] }
+  - { id: "INV-010", severity: "warning", applies_to: ["PRO", "BD"] }
+  - { id: "INV-011", severity: "critical", applies_to: ["R"] }
+  - { id: "INV-012", severity: "warning", applies_to: ["scenario_a", "scenario_b"] }
+  - { id: "INV-013", severity: "warning", applies_to: ["scenario_b"] }
 
 # ═══════════════════════════════════════════════════════════════
 # CHANGE CONTROL
 # ═══════════════════════════════════════════════════════════════
 change_control:
   spec_version: "1.0.0"
-  contract_version: "0.6.1"
+  contract_version: "0.7.0"
   last_updated: "2026-03-25"
   change_summary: >-
     Full rewrite from v0.2.0. Added: memory_interface (Open Brain +

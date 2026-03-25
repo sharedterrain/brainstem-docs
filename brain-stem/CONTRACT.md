@@ -4,7 +4,7 @@
 ---
 doc_id: "contract_brain_stem"
 last_updated: "2026-03-25"
-contract_version: "0.6.1"
+contract_version: "0.7.0"
 parent_contract: "contract_hub"
 ---
 ```
@@ -27,7 +27,7 @@ parent_contract: "contract_hub"
 
 - **Last known good commit:** 
 
-- **Last change:** v0.6.1 — Research Brain as-built reconciliation. Implemented as table + dedicated Edge Function within Open Brain Supabase project (not separate instance). §3.5, §3b, §2, §11, §13 updated to reflect as-built.
+- **Last change:** v0.7.0 — §10 and §11 consolidated as single source of truth. Invariant definitions (INV-001–013) and validation checklist folded into §10. Security rules, scan patterns, and pre-publish checklist folded into §11. Child pages tombstoned.
 
 ---
 
@@ -929,41 +929,207 @@ Classify the following brain dump into ONE of these categories:
 
 ## 10. Invariants & Validation Rules
 
-*See: Invariants & Checks (Brain Stem)*
+System invariants that must always hold true. This section is the **single source of truth** for all invariant definitions. Violations indicate drift between contract and implementation.
 
-**INV-001 coverage:** Every capture route must produce exactly one Inbox Log record. Covered routes: BD (classification), PRO (extraction), fix (correction/refile), R (research). The R: handler creates an Inbox Log record at module ~304 in Scenario A (Status=Filed, Filed To=Research Jobs, Source Link=Slack permalink).
+### INV-001: Inbox Log Singleton — Critical
+
+**Rule:** Every capture yields exactly one Inbox Log record with matching `(SlackChannel, SlackMessageTS)`.
+
+**Applies to:** Scenario A — all routes (BD, PRO, fix, R).
+
+**Evidence:** Query Inbox Log for duplicate `(SlackChannel, SlackMessageTS)` keys.
+
+**Note:** The R: handler creates an Inbox Log record at module ~304 in Scenario A (Status=Filed, Filed To=Research Jobs, Source Link=Slack permalink).
+
+### INV-002: PRO Route Confidence — Warning
+
+**Rule:** PRO route must set confidence to 1.0.
+
+**Applies to:** PRO route.
+
+**Evidence:** Query Inbox Log where `FiledTo = "Projects"` and `OriginalText` starts with `PRO:`.
+
+### INV-003: Filed Status Has Destination — Critical
+
+**Rule:** Inbox Log with Status=Filed must have non-empty DestinationName and DestinationURL.
+
+**Applies to:** Scenario A — all routes.
+
+**Evidence:** Query where `Status = "Filed"` and (`DestinationName` is empty OR `DestinationURL` is empty).
+
+### INV-004: Confidence Range — Critical
+
+**Rule:** Confidence must be between 0.0 and 1.0.
+
+**Applies to:** BD route.
+
+**Evidence:** Query Inbox Log where Confidence outside 0.0–1.0 range.
+
+### INV-005: Original Text Immutable — Critical
+
+**Rule:** OriginalText in Inbox Log must never be modified after creation.
+
+**Applies to:** Scenario A — all routes.
+
+**Evidence:** Version history audit (manual review).
+
+### INV-006: Clean Text Derivation — Warning
+
+**Rule:** `clean_text` variable must be derived from OriginalText via `replace()`, never from direct user input.
+
+**Applies to:** Scenario A — all routes.
+
+**Evidence:** Review Make module configuration for clean_text variable formula.
+
+### INV-007: Slack Thread TS Consistency — Warning
+
+**Rule:** If message is not threaded, SlackThreadTS should equal SlackMessageTS.
+
+**Applies to:** Scenario A — capture.
+
+**Evidence:** Verify capture module sets `SlackThreadTS = event.thread_ts` if present, else `event.ts`.
+
+### INV-008: Auto-File Threshold — Warning
+
+**Rule:** Messages with confidence >= 0.60 must auto-file; below 0.60 must route to Needs Review.
+
+**Applies to:** BD route.
+
+**Evidence:** Query Inbox Log for mismatches between Confidence and Status.
+
+### INV-009: LLM Output JSON Only — Critical
+
+**Rule:** LLM must return raw JSON without markdown code fences.
+
+**Applies to:** BD, PRO, fix routes.
+
+**Evidence:** Review AIOutputRaw in Inbox Log for markdown wrappers.
+
+### INV-010: Projects Type Enum — Warning
+
+**Rule:** Projects.Type must be one of: Digital, Physical, Hybrid.
+
+**Applies to:** PRO, BD routes.
+
+**Evidence:** Query Projects table for Type values not in the enum.
+
+### INV-011: R: Route Inbox Log Before Scenario B — Critical
+
+**Rule:** R: route must create Inbox Log record before triggering Scenario B webhook.
+
+**Applies to:** R route.
+
+**Evidence:** Module execution order in Scenario A R: branch (~304 before ~305).
+
+### INV-012: Memory Push Fire-and-Forget — Warning
+
+**Rule:** Memory push (Open Brain / Research Brain) is fire-and-forget — failure must not block primary pipeline.
+
+**Applies to:** Scenario A, Scenario B.
+
+**Evidence:** Verify HTTP modules have "Parse response: No" and no downstream error routes.
+
+### INV-013: Domain/ResearchJob Mutual Exclusivity — Warning
+
+**Rule:** Domain and ResearchJob links on Articles are mutually exclusive per record.
+
+**Applies to:** Scenario B.
+
+**Evidence:** Query Articles for records with both Domain and Research Job populated.
+
+### Validation Checklist
+
+**Manual checks (run before each phase completion):**
+
+- [ ] Query Inbox Log for duplicate `(SlackChannel, SlackMessageTS)` keys (INV-001)
+
+- [ ] Verify PRO route captures show Confidence = 1.0 (INV-002)
+
+- [ ] Check Filed records have non-empty DestinationName and DestinationURL (INV-003)
+
+- [ ] Validate all Confidence values are in 0.0–1.0 range (INV-004)
+
+- [ ] Review Make modules: clean_text uses replace() on OriginalText (INV-006)
+
+- [ ] Verify router filters use >= 0.60 for auto-file threshold (INV-008)
+
+- [ ] Spot-check AIOutputRaw for markdown code fence wrappers (INV-009)
+
+- [ ] Query Projects for Type values outside the enum (INV-010)
+
+**Automated checks (future):**
+
+- SQL queries against Airtable via API
+
+- Contract drift detection (spec.yaml vs actual table schemas)
+
+- Prompt version tracking (compare prompt IDs in spec vs deployed prompts)
 
 ---
 
 ## 11. Security & Redaction Rules
 
-**Never publish in Git mirror or public docs:**
+### Never Publish
 
-- Slack webhook URLs (inbound endpoints)
+The following must **never** appear in Git mirror or public documentation:
 
-- API keys, tokens, credentials
+- **API keys, tokens, credentials** — Claude (`sk-ant-...`), Airtable (`pat...`), Perplexity (`pplx-...`), Notion (`secret_...`), OpenRouter, Supabase service role keys, MCP access keys
 
-- Airtable Base IDs, Table IDs (treat as sensitive metadata)
+- **Inbound webhook URLs** — [Make.com](http://make.com/) (`hook.us2.make.com/...`), any endpoint callable without authentication
 
-- Slack signing secrets
+- **Signing secrets** — Slack signing secret, HMAC keys, verification tokens
 
-- Personal identifiers
+- **Personal identifiers** — email addresses, phone numbers, physical addresses
 
-**Placeholder format:** `<<PLACEHOLDER_NAME>>`
+- **Database identifiers** (sensitive metadata) — Airtable Base IDs (`app...`), Table IDs (`tbl...`), View IDs (`viw...`)
 
-**Registry:** Every placeholder must be documented in Security & Placeholders page.
+- **Connection strings** — database URLs, service endpoints with embedded authentication
 
-**Phase 3 additions:**
+### Placeholder Format
 
-- `<<PERPLEXITY_API_KEY>>` — Perplexity API authentication
+**Standard:** `<<PLACEHOLDER_NAME>>` — all caps, underscores, descriptive name. Self-documenting where they appear. No separate registry — the placeholder convention plus the scan patterns below are the enforcement layer.
 
-- `<<ARTICLES_TABLE_ID>>` — Airtable Articles table ID
+### Automated Scan Patterns
 
-- `<<DOMAINS_TABLE_ID>>` — Airtable Domains table ID
+Patterns that must trigger publish failure in the Git mirror pipeline:
 
-- `<<RESEARCH_LENS_TABLE_ID>>` — Airtable Research Lens table ID
+```javascript
+hook.make.com
+hook.us1.make.com
+hook.us2.make.com
+Authorization: Bearer
+sk-ant-
+sk-
+pat[0-9A-Za-z]{10,}
+secret_
+xoxb-
+xoxp-
+api.airtable.com/v0/app
+app[A-Za-z0-9]{14}
+tbl[A-Za-z0-9]{14}
+viw[A-Za-z0-9]{14}
+pplx-
+BEGIN PRIVATE KEY
+-----BEGIN
+```
 
-- `<<RESEARCH_JOBS_TABLE_ID>>` — Airtable Research Jobs table ID
+If any match found: block export, report match location, require manual review.
+
+### Pre-Publish Checklist
+
+- All tokens replaced with `<<PLACEHOLDER>>` pattern
+
+- All inbound webhook URLs replaced with `<<MAKE_WEBHOOK_URL>>`
+
+- No personal identifiers present
+
+- All Airtable IDs replaced with appropriate placeholders
+
+- Run automated pattern scan
+
+- Manual skim for "looks like a secret" strings (long alphanumeric, base64-like)
+
+- No "disable verification" or "skip authentication" instructions
 
 ---
 
@@ -1075,6 +1241,7 @@ Supabase Edge Functions cache secrets at deploy time. This creates two failure m
 
 | **Version** | **Date** | **Description** |
 | --- | --- | --- |
+| 0.7.0 | 2026-03-25 | §10 and §11 consolidated as single source of truth. Full invariant definitions (INV-001–013) moved into §10 with validation checklist. Security rules, never-publish categories, and scan patterns moved into §11; placeholder registry table dropped. Both child pages (Invariants & Checks, Security & Placeholders) tombstoned. contracts/spec invariants renumbered (former INV-006–008 → INV-011–013) and converted to reference-only. Minor version bump — new invariants, structural consolidation, no interface changes. |
 | 0.6.1 | 2026-03-25 | Research Brain as-built reconciliation. Spec called for a separate Supabase instance; implemented as a dedicated table (`research_returns`) + Edge Function (`ingest-research`) within the existing Open Brain Supabase project. Rationale: free tier limits 2 projects, no semantic bleed risk from separate table, same credential chain simplifies Make configuration. §3.5 endpoint corrected (`ingest-research` not `ingest-thought`, `<<SUPABASE_PROJECT_REF>>` not `<<RESEARCH_BRAIN_PROJECT_REF>>`). §11 removed two obsolete placeholders. §2, §3b, §13 updated throughout. Patch bump — no interface shape change, documentation reconciliation only. |
 | 0.6.0 | 2026-03-24 | Phase 3 Research Pipeline additions. §9 added Domains, Research Lens, Research Jobs, Articles table schemas. §3.5 added Research Brain Memory Interface (separate write path from Open Brain — different payload schema, separate Supabase instance). §3b added Research Memory provider row. §7 R: route updated from scaffolded to Phase 3 implementation (Perplexity provider, not Claude). §10 INV-001 coverage explicitly extended to R: route. §11 added 7 security placeholders (Perplexity key, Research Brain credentials, 4 Airtable table IDs). §13 added Phase 3 scope definition including Scenario B mode flag pattern (sweep/job). Minor version bump — new tables, new memory instance, new route implementation, all additive. |
 | 0.5.0 | 2026-03-19 | §9 Data Contracts reconciled to as-built Airtable schemas via column-level screenshot audit. Changes: Tags field corrected from Multiple select → Long text (all destination tables). Source (Single select) and Source Link (URL) added to all tables. Linked record fields added (Inbox Log ↔ destination tables, Drafts, Events on People). People: Follow-ups → Follow-Ups, added Entity Type (Person/Organization). Projects: no structural change beyond shared fields. Ideas: no structural change beyond shared fields. Admin: Status simplified to Todo/Done, added Tags. Events: Event Type expanded (added Volunteering, Workshop), Calendar Source replaces Source (Google Calendar/Manual Entry/Slack), added Calendar Sync Status, Location changed to Long text. Inbox Log: Filed To changed from text → Single select, Captured At → Created (auto), added Linked People/Projects/Ideas/Admin, Destination Record ID, Source, Source Link. Minor version bump — additive fields + type corrections, no interface shape changes. |
@@ -1108,7 +1275,7 @@ This contract is its own source of truth for change history. The `contract_versi
 
 Every CONTRACT or spec change must consider which downstream documents are affected.
 
-**Downstream docs for this contract:** contracts/spec, Phase docs, Invariants & Checks, Architecture & Flows.
+**Downstream docs for this contract:** contracts/spec, Phase docs, Architecture & Flows.
 
 ### 15.4 Forward Path (Design → Implementation)
 
@@ -1155,8 +1322,6 @@ If a downstream doc cannot be updated in the same session, add this banner at th
 ### Related Documents
 
 - contracts/spec (Brain Stem)
-
-- Invariants & Checks (Brain Stem)
 
 - [Phase 0: Setup & Configuration](https://www.notion.so/ed998ca8e6464de188987fbf06e30568)
 

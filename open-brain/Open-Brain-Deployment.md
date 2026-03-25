@@ -27,7 +27,7 @@ Open Brain is a semantic memory layer that stores vector embeddings of every cap
 
 ### 2.1 Memory Topology
 
-The deployed system uses a **three-memory architecture** plus a **Research Brain catalogue**. Two memories are semantic vector stores (Supabase + pgvector), deployed as independent Supabase projects with their own credentials; one is local filesystem state. The Research Brain (v1.0.1) is a non-vector catalogue table (`research_returns`) within Jedi's Open Brain project — same instance, same credentials, dedicated Edge Function (`ingest-research`).
+The deployed system uses a **three-memory architecture** plus a **Research Brain catalogue**. Two memories are semantic vector stores (Supabase + pgvector), deployed as independent Supabase projects with their own credentials; one is local filesystem state. The Research Brain (v1.0.1) is a vector-enabled table (`research_returns`) within Jedi's Open Brain project — same instance, same credentials, dedicated Edge Function (`ingest-research`), embeddings via the same OpenRouter pipeline.
 
 ```plain text
 ┌──────────────────────────────────────────────────────────────────┐
@@ -71,7 +71,7 @@ The deployed system uses a **three-memory architecture** plus a **Research Brain
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-> **v1.0.1:** Jedi's Open Brain now also hosts the Research Brain catalogue — `research_returns` table + `ingest-research` Edge Function, same project and credentials. See §6A Instance Registry.
+> **v1.0.1:** Jedi's Open Brain now also hosts the Research Brain — `research_returns` table (vector-enabled) + `ingest-research` Edge Function + research tools on `open-brain-mcp`, same project and credentials. See §6A Instance Registry.
 
 ### 2.2 Pattern vs Instance
 
@@ -381,7 +381,7 @@ Deno.serve(async (req: Request) => {
 
 ## 5. Edge Function: `open-brain-mcp`
 
-**Purpose:** MCP-compatible read endpoint. Exposes semantic search, recent browse, and stats to any MCP client.
+**Purpose:** MCP-compatible read endpoint. Exposes semantic search, recent browse, stats, and research retrieval (6 tools total) to any MCP client.
 
 **URL:** `https://[PROJECT_REF].supabase.co/functions/v1/open-brain-mcp`
 
@@ -405,21 +405,47 @@ Deno.serve(async (req: Request) => {
 
 - **Output:** Array of `{ id, content, metadata, created_at }`
 
-### 5.3 `brain_stats`
+### 5.3 `brain_stats`
 
-- **Input:** `{}`
+- **Input:** `{}`
 
-- **Process:** COUNT total, COUNT by source, COUNT by destination, MIN/MAX created_at.
+- **Process:** COUNT total, COUNT by source, COUNT by destination, MIN/MAX created_at.
 
-- **Output:** `{ total, by_source: {...}, by_destination: {...}, oldest, newest }`
+- **Output:** `{ total, by_source: {...}, by_destination: {...}, oldest, newest }`
 
-**Implementation:** Follow the Open Brain guide's MCP server code (Step 11), which uses `@hono/mcp` and `@modelcontextprotocol/sdk`. Adapt the three tools above. The guide's implementation is sound — the only changes are:
+### 5.4 `search_research`
 
-1. Add the `source` filter option to `recent_thoughts`.
+- **Input:** `{ query: string, threshold?: number (default 0.5), limit?: number (default 10) }`
 
-1. Add `by_destination` breakdown to `brain_stats`.
+- **Process:** Generate embedding of query via OpenRouter, call `match_research` RPC against `research_returns` table.
 
-1. Use the same `x-brain-key` auth as ingest.
+- **Output:** Array of `{ id, title, url, source, published_date, summary, similarity, created_at }`
+
+### 5.5 `latest_research_run`
+
+- **Input:** `{ limit?: number (default 10) }`
+
+- **Process:** SELECT from `research_returns` ORDER BY `created_at DESC`, returning the most recent ingested research articles.
+
+- **Output:** Array of `{ id, title, url, source, published_date, summary, created_at }`
+
+### 5.6 `get_research_digest`
+
+- **Input:** `{ hours?: number (default 24), topic?: string (optional) }`
+
+- **Process:** Retrieve recent research articles, optionally filtered by semantic similarity to topic. Provides a digest-oriented view of research activity.
+
+**Output:** Array of `{ id, title, url, source, published_date, summary, created_at }` with optional similarity score when topic is provided.
+
+**Implementation:** Follow the Open Brain guide's MCP server code (Step 11), which uses `@hono/mcp` and `@modelcontextprotocol/sdk`. Adapt the six tools above. The guide's implementation is sound — the only changes are:
+
+1. Add the `source` filter option to `recent_thoughts`.
+
+1. Add `by_destination` breakdown to `brain_stats`.
+
+1. Use the same `x-brain-key` auth as ingest.
+
+1. Add `search_research`, `latest_research_run`, and `get_research_digest` tools targeting the `research_returns` table and `match_research` RPC.
 
 **Dependencies (deno.json):**
 
@@ -437,19 +463,19 @@ Deno.serve(async (req: Request) => {
 
 ## 6A. Instance Registry
 
-Two Supabase instances are deployed, plus a **Research Brain catalogue table** within Jedi's Open Brain project. The two vector-store instances (Jedi's Open Brain and Magi Brain) use the identical schema (§3.2), matching function (§3.2), and RLS policy (§3.2). Research Brain uses a separate table (`research_returns`) and dedicated Edge Function (`ingest-research`) but shares the same project and credentials as Jedi's Open Brain. All Edge Functions follow the same patterns (§4–5) with instance-specific naming.
+Two Supabase instances are deployed, plus the **Research Brain** (vector-enabled) within Jedi's Open Brain project. The two vector-store instances (Jedi's Open Brain and Magi Brain) use the identical schema (§3.2), matching function (§3.2), and RLS policy (§3.2). Research Brain uses a separate table (`research_returns`), its own matching function (`match_research`), and a dedicated Edge Function (`ingest-research`) but shares the same project, credentials, and `open-brain-mcp` endpoint as Jedi's Open Brain. All Edge Functions follow the same patterns (§4–5) with instance-specific naming.
 
 | **Instance** | **Project Ref** | **Table** | **Ingest Function** | **MCP Function** | **Access Key Env Var** | **Writers** | **Readers** |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Jedi's Open Brain (shared) | `<<SUPABASE_PROJECT_REF>>` | `thoughts` | `ingest-thought` | `open-brain-mcp` | `<<OPEN_BRAIN_ACCESS_KEY>>` | Brain Stem (Make), Magi | Magi, Claude Desktop/Code, any MCP client |
-| Research Brain (catalogue) | `<<SUPABASE_PROJECT_REF>>` (shared) | `research_returns` | `ingest-research` | — (no MCP read yet) | `<<OPEN_BRAIN_ACCESS_KEY>>` (shared) | Brain Stem Scenario B | Claude (via Supabase MCP), future read tooling |
+| Research Brain (vector-enabled) | `<<SUPABASE_PROJECT_REF>>` (shared) | `research_returns` | `ingest-research` | `open-brain-mcp` (shared) | `<<OPEN_BRAIN_ACCESS_KEY>>` (shared) | Brain Stem Scenario B | Magi (via open-brain-mcp), Claude (via Supabase MCP) |
 | Magi Brain (Magi-exclusive) | `<<MAGI_BRAIN_REF>>` | `thoughts` | `magi-brain-ingest` | `magi-brain-mcp` | `<<MAGI_BRAIN_ACCESS_KEY>>` | Magi only | Magi only |
 
 **Jedi's Open Brain** stores shared knowledge: Brain Stem captures (people, projects, ideas, admin, events), Magi's decisions and insights, and any manual entries. Multiple systems write and read.
 
 **Magi Brain** stores Magi's private operational memory: cross-session patterns, learned behaviors, tool usage observations, and operational context that only Magi needs. No external writers or readers. This is Magi's equivalent of institutional knowledge — what it has learned about how things work across sessions.
 
-**Research Brain** stores raw research article metadata returned by Perplexity (or any research provider) via Brain Stem Scenario B. It is a catalogue — no embeddings, no vector search in Phase 3. Deduplication uses a partial unique index on `url + published_date` (WHERE NOT NULL) with `ON CONFLICT DO NOTHING`; an empty result set signals a duplicate.
+**Research Brain** stores research article metadata returned by Perplexity (or any research provider) via Brain Stem Scenario B. Articles are embedded at ingest time using the same OpenRouter pipeline as `thoughts`, enabling semantic search via `match_research` RPC and the `search_research` MCP tool. Deduplication uses a partial unique index on `url + published_date` (WHERE NOT NULL) with `ON CONFLICT DO NOTHING`; an empty result set signals a duplicate.
 
 **Metadata differentiation:**
 
@@ -459,7 +485,7 @@ Two Supabase instances are deployed, plus a **Research Brain catalogue table** w
 
 **Key design principle:** Instance isolation over metadata filtering. Rather than storing everything in one database and filtering by source, each actor class gets its own Supabase project. This provides credential-level access control without complex RLS policies.
 
-**Exception:** Research Brain deliberately uses table isolation within Jedi's Open Brain project rather than a separate instance. Rationale: free tier limits 2 projects, no semantic bleed risk from a separate table, same credential chain. Documented in Brain-Stem CONTRACT deviation log (v0.6.1).
+**Exception:** Research Brain deliberately uses table isolation within Jedi's Open Brain project rather than a separate instance. Rationale: free tier limits 2 projects, same embedding pipeline, same credential chain. Research tools are exposed on the existing `open-brain-mcp` endpoint — no separate MCP registration required. Documented in Brain-Stem CONTRACT deviation log (v0.6.1).
 
 ---
 
@@ -634,7 +660,7 @@ Magi accesses **both** Supabase brains (see §6A). Access is via `curl` wrapped 
 }
 ```
 
-Both servers expose the same three tools (`search_thoughts`, `recent_thoughts`, `brain_stats`). Magi must search **both** at session start — a search of one does not search the other.
+Magi Brain exposes three tools (`search_thoughts`, `recent_thoughts`, `brain_stats`). Jedi's Open Brain (`open-brain-mcp`) exposes six: the same three plus `search_research`, `latest_research_run`, and `get_research_digest` for Research Brain retrieval. Research tools are available on the existing endpoint — no separate MCP registration needed. Magi must search **both** brains at session start — a search of one does not search the other.
 
 ### 7.2 Dual-Brain Write Routing
 
@@ -748,7 +774,7 @@ Ingest URL: https://<<MAGI_BRAIN_REF>>.supabase.co/functions/v1/magi-brain-inges
 MCP URL: https://<<MAGI_BRAIN_REF>>.supabase.co/functions/v1/magi-brain-mcp
 ```
 
-Each instance has its own Supabase project, DB password, and MCP access key. The OpenRouter API key is shared across both (same account, same billing).
+Each instance has its own Supabase project, DB password, and MCP access key. The OpenRouter API key is shared across both projects (same account, same billing) and is required on Jedi's Open Brain for both `ingest-thought` and `ingest-research` embedding generation.
 
 ## 10. Security Notes
 
